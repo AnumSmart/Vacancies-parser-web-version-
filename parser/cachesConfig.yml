@@ -1,0 +1,11 @@
+cache:
+  num_of_shards: 5 # количество шардов для инмэмори кэшей
+  search_cache:
+    search_cache_ttl: 3600s # время жизни элементов кэша поиска
+    search_cache_clean_up_interval: 1800s # интервал самоочистки для инмэмори кэша поиска
+  vacancy_cache:
+    vacancy_cache_ttl: 2700s # время жизни элементов кэша индекса
+    vacancy_cache_clean_up_interval: 1300s # интервал самоочистки для инмэмори кэша индекса
+  vacancy_details_cache:
+    vac_datails_cache_ttl: 6000s # время жизни элементов кэша деталей вакансии
+    vac_datails_cache_clean_up_interval: 3000s # интервал самоочистки для инмэмори кэша деталей вакансии

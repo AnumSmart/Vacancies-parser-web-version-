@@ -1,0 +1,17 @@
+# health_check_config.yml
+# Конфигурация HTTP health check клиента
+
+# Таймауты
+request_timeout: '5s' # Таймаут на один health check запрос
+initialization_timeout: '10s' # Максимальное время инициализации
+check_interval: '10s' # интервал проверки состояния сервисов, куда ходят парсеры
+
+# Настройки HTTP клиента
+http_client:
+  timeout: '5s' # Общий таймаут клиента
+  max_idle_conns: 10 # максимальное количество бездействующих (keep-alive) соединений для http клиента (экономия ресурсов)
+  idle_conn_timeout: '30s' # интервал, через сколько закрывать неиспользуемое соединение
+  tls_handshake_timeout: '3s' # максимальное время ожидания завершения TLS handshake
+  expect_continue_timeout: '1s' # интервал, оптимизация для сценариев загрузки больших данных
+  disable_keep_alives: false
+  max_conns_per_host: 2
