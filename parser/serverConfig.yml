@@ -1,0 +1,7 @@
+server:
+  host: 'localhost'
+  port: '8080'
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_imeout: 60s
+  max_header_bytes: 1048576 # 1 мегабайт

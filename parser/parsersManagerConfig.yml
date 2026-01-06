@@ -1,0 +1,8 @@
+max_concurrent_parsers: 12 # глобальный семафор на использование парсеров
+health_check_interval: 10s # интервал проверки систояния менеджера парсеров
+circuit_breaker:
+  failure_threshold: 5 # порог количества неудачных запросов, после которого сработает citrut breaker
+  success_threshold: 3 # Кол-во успешных запросов для перехода в Closed
+  half_open_max_requests: 2 # максимальное кол-во запросов в Half-Open состоянии, чтобы перейти в состояние Closed
+  reset_timeout: 10s # оффсет, после котрого переходим в сотояние Closed
+  window_duration: 10s
