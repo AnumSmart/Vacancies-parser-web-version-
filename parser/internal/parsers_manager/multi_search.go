@@ -17,7 +17,7 @@ func (pm *ParsersManager) MultiSearch(scanner *bufio.Scanner) error {
 	ctx := context.Background()
 
 	// запускаем комплексный метод поиска
-	results, err := pm.searchVacancies(ctx, params)
+	results, err := pm.SearchVacancies(ctx, params)
 	if err != nil {
 		return err
 	}

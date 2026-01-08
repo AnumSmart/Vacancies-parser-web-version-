@@ -12,9 +12,9 @@ import (
 
 // метод менджера парсеров, который формирует джобу для поиска списка вакансий, добавляет эту джобу в очередь и получает результат поиска в канал
 // возвращает результат поиска или ошибку
-func (pm *ParsersManager) searchVacancies(ctx context.Context, params models.SearchParams) ([]models.SearchVacanciesResult, error) {
+func (pm *ParsersManager) SearchVacancies(ctx context.Context, params models.SearchParams) ([]models.SearchVacanciesResult, error) {
 	// создаём новую джобу необходимого типа (в данном случае джоба поиска списка вакансий)
-	job := pm.NewSearchJob(params)
+	job := pm.newSearchJob(params)
 
 	// Пытаемся добавить в очередь с таймаутом и повторными попытками
 	success := pm.tryEnqueueJob(ctx, job, 5*time.Second)

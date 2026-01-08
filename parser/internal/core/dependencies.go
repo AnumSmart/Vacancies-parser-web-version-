@@ -82,7 +82,7 @@ func InitDependencies() (*Dependencies, error) {
 	}
 
 	// создаём поисковый сервис
-	searchService := service.NewSearchService()
+	searchService := service.NewSearchService(parserManager)
 
 	// создаём хэндлер поиска
 	searchHandler := handlers.NewSearchHandler(searchService)
