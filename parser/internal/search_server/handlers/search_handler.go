@@ -31,14 +31,37 @@ func (s *SearchHandler) ProcessMultisearchRequest(c *gin.Context) {
 	// Парсинг DTO запроса
 	var req dto.SearchRequest
 
+	// парсим данные запроса из JSON в необходимую структуру
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
 
+	// проводим валидацию и нормализацию входных данных
+	if err := req.ValidateAndNormalize(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Конвертация DTO -> Domain
-	params := converters.SearchRequestToParams(req)
+	params := converters.SearchRequestDTOToParamsDomain(req)
 
-	c.JSON(http.StatusOK, params)
+	// запускаем комплексный метод поиска (идём в сервисный слой)
+	searchVacanciesResults, err := s.service.SearchVacancies(c, params)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
+	// Проверяем, что получили хоть какаеи данные после поиска
+	if len(searchVacanciesResults) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Failed to find vacancies"})
+		return
+	}
+
+	// Конвертация Domain -> DTO
+	result := converters.SearchVacanciesResultDomainToDTO(searchVacanciesResults)
+
+	// отдаём результат клиенту
+	c.JSON(http.StatusOK, result)
 }

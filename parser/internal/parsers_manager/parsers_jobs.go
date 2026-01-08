@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// NewSearchJob - создает джобу для поиска вакансий
-func (pm *ParsersManager) NewSearchJob(params models.SearchParams) *jobs.SearchJob {
+// newSearchJob - создает джобу для поиска вакансий
+func (pm *ParsersManager) newSearchJob(params models.SearchParams) *jobs.SearchJob {
 	return &jobs.SearchJob{
 		BaseJob: jobs.BaseJob{
 			ID:         pkg.QuickUUID(),

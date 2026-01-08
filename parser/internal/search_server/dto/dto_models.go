@@ -1,5 +1,7 @@
 package dto
 
+import "errors"
+
 // SearchRequest - DTO для входящего запроса
 type SearchRequest struct {
 	Query    string `json:"query" binding:"required,min=2,max=100"`
@@ -27,10 +29,48 @@ type VacancyResponse struct {
 	PublishedAt string `json:"published_at"` // "2 дня назад"
 }
 
-// SearchResponse - основной ответ API
+// SearchVacanciesResponse - DTO для ответа с группировкой по источникам
 type SearchVacanciesResponse struct {
-	Success    bool              `json:"success"`
-	Data       []VacancyResponse `json:"data"`
-	ParserName string            `json:"parser_name"`
-	TookMs     int64             `json:"took_ms"` // Время выполнения
+	Results map[string]SourceVacancies `json:"results"`
+	Total   int                        `json:"total"`
+}
+
+// SourceVacancies - вакансии одного источника
+type SourceVacancies struct {
+	Name      string            `json:"name"`
+	Icon      string            `json:"icon"`
+	Vacancies []VacancyResponse `json:"vacancies"`
+	Count     int               `json:"count"`
+	HasError  bool              `json:"has_error"`
+	Error     string            `json:"error,omitempty"`
+	Duration  string            `json:"duration,omitempty"` // "1.2s"
+}
+
+// метод валидации и нормализации данных из запроса поиска вакансий
+func (r *SearchRequest) ValidateAndNormalize() error {
+	if r.Query == "" {
+		return errors.New("search text cannot be empty")
+	}
+
+	// Нормализация
+	if r.PerPage == 0 {
+		r.PerPage = 50
+	} else if r.PerPage > 100 {
+		r.PerPage = 100 // также можно добавить ограничение
+	}
+
+	if r.Page == 0 {
+		r.Page = 1
+	}
+
+	// Дополнительная валидация
+	if r.PerPage < 1 {
+		return errors.New("per_page must be positive")
+	}
+
+	if r.Page < 1 {
+		return errors.New("page must be positive")
+	}
+
+	return nil
 }
