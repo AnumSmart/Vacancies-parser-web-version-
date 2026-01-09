@@ -95,7 +95,7 @@ func (p *HHParser) buildURL(params models.SearchParams) (string, error) {
 
 	// добавляем параметр - локация
 	if params.Location != "" {
-		query.Set("area", params.Location)
+		query.Set("location", params.Location)
 	}
 
 	// добавляем параетры страниц

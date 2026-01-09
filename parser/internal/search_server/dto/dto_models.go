@@ -10,6 +10,11 @@ type SearchRequest struct {
 	Page     int    `json:"page" binding:"min=0"`
 }
 
+type SearchVacancyRequest struct {
+	VacancyID string `json:"vacancy_id"`
+	Source    string `json:"source"`
+}
+
 // VacancyResponse - DTO для ответа клиенту
 type VacancyResponse struct {
 	ID         string `json:"id"`
@@ -72,5 +77,16 @@ func (r *SearchRequest) ValidateAndNormalize() error {
 		return errors.New("page must be positive")
 	}
 
+	return nil
+}
+
+// метод валидации и нормализации данных из запроса для поиска вакансии, среди уже найденных по ID
+func (r *SearchVacancyRequest) ValidateAndNormalize() error {
+	if r.VacancyID == "" {
+		return errors.New("Vacancy ID can not be empty!")
+	}
+	if r.Source == "" {
+		return errors.New("Vacancy Source can not be empty!")
+	}
 	return nil
 }

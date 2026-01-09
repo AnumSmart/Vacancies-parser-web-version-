@@ -18,7 +18,7 @@ func (pm *ParsersManager) tryGetFromCache(params models.SearchParams) ([]models.
 	}
 
 	// пытаемся найти в кэше данные по заданному хэш ключу
-	cached, ok := pm.searchCache.GetItem(searchHash)
+	cached, ok := pm.SearchCache.GetItem(searchHash)
 	if !ok {
 		fmt.Println("⏳ Не удалось найти данные в кэше!")
 		return nil, false
@@ -45,7 +45,7 @@ func (pm *ParsersManager) cacheSearchResults(params models.SearchParams, results
 	}
 
 	//записываем данные в поисковый кэш №1
-	pm.searchCache.AddItemWithTTL(searchHash, results, pm.config.Cache.SearchCacheConfig.SearchCacheTTL)
+	pm.SearchCache.AddItemWithTTL(searchHash, results, pm.config.Cache.SearchCacheConfig.SearchCacheTTL)
 
 	// Строим обратный индекс и сразу кэшируем его в кэше №2
 	pm.buildReverseIndex(searchHash, results)
@@ -56,7 +56,7 @@ func (pm *ParsersManager) cacheSearchResults(params models.SearchParams, results
 // метод для кэширования результатов поиска деталей конкретной вакансии по заднанному ID и парсеру (источнику)
 func (pm *ParsersManager) cacheDetailsResult(vacancyID string, results models.SearchVacancyDetailesResult) {
 	//записываем данные в поисковый кэш №3 (для деталей вакансии)
-	pm.searchCache.AddItemWithTTL(vacancyID, results, pm.config.Cache.VacancyCacheConfig.VacancyCacheTTL)
+	pm.SearchCache.AddItemWithTTL(vacancyID, results, pm.config.Cache.VacancyCacheConfig.VacancyCacheTTL)
 
 	fmt.Printf("✅ Результаты поиска закэшированы в поисковом кэше (ключ: %s)\n", vacancyID)
 }

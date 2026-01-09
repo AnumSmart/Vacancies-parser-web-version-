@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+/*
 // метод получения информации о вакансии из кэша с помощью кэша обратного индекса
 func (pm *ParsersManager) GetVacancyDetails(scanner *bufio.Scanner) error {
 	fmt.Println("\n📄 Детали вакансии (кратко):")
@@ -32,7 +33,7 @@ func (pm *ParsersManager) GetVacancyDetails(scanner *bufio.Scanner) error {
 
 	// -------------------------------------------------------------------
 	// пытаемся найти в кэше №2 данные по заданному ключу (составному индексу)
-	searchResIndex, ok := pm.vacancyIndex.GetItem(compositeID)
+	searchResIndex, ok := pm.VacancyIndex.GetItem(compositeID)
 	if !ok {
 		return fmt.Errorf("No Vacancy with ID:%s was found in cache\n", vacancyID)
 	}
@@ -48,7 +49,7 @@ func (pm *ParsersManager) GetVacancyDetails(scanner *bufio.Scanner) error {
 	// чтобы потом по этому хэшу из кэша поиска найти нужную вакансию по ID
 
 	// пытаемся найти в кэше данные по заданному хэш ключу
-	searchRes, ok := pm.searchCache.GetItem(searchResIndexChecked.SearchHash)
+	searchRes, ok := pm.SearchCache.GetItem(searchResIndexChecked.SearchHash)
 	if ok {
 		// если можно получить данные из кэша, то получаем интерфейс.
 		// проводим type assertion, проверяем нужный тип
@@ -72,7 +73,7 @@ func (pm *ParsersManager) GetVacancyDetails(scanner *bufio.Scanner) error {
 			}
 		}
 	} else {
-		pm.vacancyIndex.DeleteItem(compositeID)
+		pm.VacancyIndex.DeleteItem(compositeID)
 		return fmt.Errorf("Данные устарели, сделайте повторный запрос (пункт меню 1)\n")
 	}
 
@@ -81,6 +82,7 @@ func (pm *ParsersManager) GetVacancyDetails(scanner *bufio.Scanner) error {
 	return nil
 }
 
+*/
 // метод для получения полной информации по отдельной вакансии по ID
 func (pm *ParsersManager) GetFullVacancyDetails(scanner *bufio.Scanner) error {
 	// получаем ID вакансии и имя источника из ввода
