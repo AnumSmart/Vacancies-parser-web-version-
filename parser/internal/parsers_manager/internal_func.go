@@ -53,7 +53,7 @@ func (pm *ParsersManager) buildReverseIndex(searchHash string, results []models.
 			}
 
 			// Сохраняем в индексный кэш (ТОТ ЖЕ ТИП!), TTL такой же как для кэша поиска
-			pm.vacancyIndex.AddItemWithTTL(compositeID, indexEntry, pm.config.Cache.VacancyCacheConfig.VacancyCacheTTL)
+			pm.VacancyIndex.AddItemWithTTL(compositeID, indexEntry, pm.config.Cache.VacancyCacheConfig.VacancyCacheTTL)
 		}
 	}
 }

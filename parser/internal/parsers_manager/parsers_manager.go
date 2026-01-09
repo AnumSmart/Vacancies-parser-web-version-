@@ -17,8 +17,8 @@ import (
 type ParsersManager struct {
 	parsers              []interfaces.Parser                  // парсеры, которыми оперирует мэнеджер
 	config               *configs.Config                      // общий конфиг
-	searchCache          *inmemory_cache.InmemoryShardedCache // поисковый кэш
-	vacancyIndex         *inmemory_cache.InmemoryShardedCache // кэш для обратного индекса
+	SearchCache          *inmemory_cache.InmemoryShardedCache // поисковый кэш
+	VacancyIndex         *inmemory_cache.InmemoryShardedCache // кэш для обратного индекса
 	vacancyDetails       *inmemory_cache.InmemoryShardedCache // кэш для деталей вакансии
 	parsersStatusManager interfaces.ParsersStatusManager      // менеджер сотсояний парверов внутри менеджера
 	circuitBreaker       interfaces.CBInterface               // глобальный circut breaker (используем интерфейс)
@@ -82,8 +82,8 @@ func NewParserManager(config *configs.Config,
 	pm := &ParsersManager{
 		parsers:              parsers,
 		config:               config,
-		searchCache:          searchCache,    // кэш для поиска
-		vacancyIndex:         vacancyIndex,   // кэш для обратного индекса
+		SearchCache:          searchCache,    // кэш для поиска
+		VacancyIndex:         vacancyIndex,   // кэш для обратного индекса
 		vacancyDetails:       vacancyDetails, // кэш для деталей отдельной вакансии
 		parsersStatusManager: pStatManager,
 		circuitBreaker:       circuitbreaker.NewCircutBreaker(config.Manager.CircuitBreakerCfg),

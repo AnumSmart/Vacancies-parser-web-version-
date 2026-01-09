@@ -46,6 +46,7 @@ func NewServer(ctx context.Context, config *configs.ServerConfig, handler *handl
 func (s *VacancySearchServer) SetUpRoutes() {
 	s.router.GET("/hello", s.handler.EchoSearchServer)                 // тестовый ендпоинт
 	s.router.POST("/multisearch", s.handler.ProcessMultisearchRequest) // эндпоинт поиска всех доступных вакансий из всех доступных источников (согласно строке поиска)
+	s.router.POST("/quickoverview", s.handler.ProcessQuickRequest)     // эндпоинт получения краткой инфы по конкретной найденной вакансии
 }
 
 // Метод для запуска сервера

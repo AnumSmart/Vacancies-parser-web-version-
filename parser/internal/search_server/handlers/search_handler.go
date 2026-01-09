@@ -65,3 +65,22 @@ func (s *SearchHandler) ProcessMultisearchRequest(c *gin.Context) {
 	// отдаём результат клиенту
 	c.JSON(http.StatusOK, result)
 }
+
+// метод обработки запроса одной вакансии из списка найденных по ID
+func (s *SearchHandler) ProcessQuickRequest(c *gin.Context) {
+	// Парсинг DTO запроса
+	var req dto.SearchVacancyRequest
+
+	// парсим данные запроса из JSON в необходимую структуру
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// проводим валидацию и нормализацию входных данных
+	if err := req.ValidateAndNormalize(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+}
