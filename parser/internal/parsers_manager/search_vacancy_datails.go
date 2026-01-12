@@ -93,7 +93,7 @@ func (pm *ParsersManager) GetFullVacancyDetails(scanner *bufio.Scanner) error {
 
 	ctx := context.Background()
 
-	result, err := pm.executeSearchVacancyDetailes(ctx, vacancyID, source)
+	result, err := pm.ExecuteSearchVacancyDetailes(ctx, vacancyID, source)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (pm *ParsersManager) GetFullVacancyDetails(scanner *bufio.Scanner) error {
 
 // метод менджера парсеров, который формирует джобу для поиска деталей по конкретной вакансии, добавляет эту джобу в очередь и получает результат поиска в канал
 // возвращает результат поиска или ошибку
-func (pm *ParsersManager) executeSearchVacancyDetailes(ctx context.Context, vacancyID, source string) (models.SearchVacancyDetailesResult, error) {
+func (pm *ParsersManager) ExecuteSearchVacancyDetailes(ctx context.Context, vacancyID, source string) (models.SearchVacancyDetailesResult, error) {
 	// создаём новую джобу необходимого типа (в данном случае джоба поиска расширенной инфы по конкретной вакансии)
 	job := pm.NewFetchVacancyJob(source, vacancyID)
 

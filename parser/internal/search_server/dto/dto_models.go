@@ -40,6 +40,16 @@ type SearchVacanciesResponse struct {
 	Total   int                        `json:"total"`
 }
 
+// DTO для ответа - расширенная информация по конкретной вакансии
+type VacancyDetailsResponce struct {
+	ID          string `json:"id"`
+	Job         string `json:"job"`
+	Company     string `json:"company"`
+	Salary      string `json:"salary"` // "от 150 000 ₽" или "не указана"
+	Description string `json:"description"`
+	URL         string `json:"url"`
+}
+
 // SourceVacancies - вакансии одного источника
 type SourceVacancies struct {
 	Name      string            `json:"name"`

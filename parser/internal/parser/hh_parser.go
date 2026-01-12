@@ -3,6 +3,7 @@ package parser
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -148,9 +149,10 @@ func (p *HHParser) convertToUniversal(searchResponse interface{}) ([]models.Vaca
 		return []models.Vacancy{}, fmt.Errorf("[Parser name: %s], wrong data type in the response body\n", p.name) // возвращаем пустой слайс
 	}
 
-	// Проверка на nil внутри структуры
-	if searchResp.Items == nil {
-		return []models.Vacancy{}, nil // Нет ошибки, просто нет данных
+	// Проверка на релевантность работы алгоритмов поиска на HH.ru
+	// если запрос не достаточно точен, то могут быть найденные вакансии, но они не попадут в ответе в слайс items[]
+	if len(searchResp.Items) == 0 && searchResp.Found > 0 {
+		return []models.Vacancy{}, errors.New("Need to change querry request, not enought information for search") // Нет ошибки, просто нет данных
 	}
 
 	// сразу инициализируем слайс универсальных вакансий, чтобы уменьшить количество переаалокаций, если выйдем за размер базового массива слайса

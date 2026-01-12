@@ -12,6 +12,8 @@ import (
 // интерфейс поискового сервиса
 type SearchServiceInterface interface {
 	SearchVacancies(ctx context.Context, params models.SearchParams) ([]models.SearchVacanciesResult, error)
+	GetBriefVacancyDetails(getVacReq dto.SearchVacancyRequest) (models.Vacancy, error)
+	GetVacancyDetails(ctx context.Context, getVacReq dto.SearchVacancyRequest) (models.SearchVacancyDetailesResult, error)
 }
 
 // структура поискового сервиса
@@ -37,6 +39,7 @@ func (s *SearchService) SearchVacancies(ctx context.Context, params models.Searc
 	return results, nil
 }
 
+// метод сервисного слоя для получения сжатой информации по конкретной вакансии из списка уже найденных по ID и сервису
 func (s *SearchService) GetBriefVacancyDetails(getVacReq dto.SearchVacancyRequest) (models.Vacancy, error) {
 	// создаём составной индекс, в котором будет ID вакансии и сервис, в котором этот ID нужно будет искать
 	// этот составной индекс - будет ключем для кэша №2
@@ -48,7 +51,7 @@ func (s *SearchService) GetBriefVacancyDetails(getVacReq dto.SearchVacancyReques
 	// пытаемся найти в кэше №2 данные по заданному ключу (составному индексу)
 	searchResIndex, ok := s.searchManager.VacancyIndex.GetItem(compositeID)
 	if !ok {
-		return models.Vacancy{}, fmt.Errorf("No Vacancy with ID:%s was found in cache\n", getVacReq.VacancyID)
+		return models.Vacancy{}, fmt.Errorf("No Vacancy with ID:%s was found in cache", getVacReq.VacancyID)
 	}
 
 	// проводим type assertion, проверяем нужный тип (так как нам функция GetItem возвращает интерфейс)
@@ -91,4 +94,13 @@ func (s *SearchService) GetBriefVacancyDetails(getVacReq dto.SearchVacancyReques
 	}
 
 	return targetVacancy, nil
+}
+
+// метод сервисного слоя для получения полной информации по конкретной вакансии по ID и названию сервиса (делается отдельный запрос на внешний ресурс)
+func (s *SearchService) GetVacancyDetails(ctx context.Context, getVacReq dto.SearchVacancyRequest) (models.SearchVacancyDetailesResult, error) {
+	vacInfo, err := s.searchManager.ExecuteSearchVacancyDetailes(ctx, getVacReq.VacancyID, getVacReq.Source)
+	if err != nil {
+		return models.SearchVacancyDetailesResult{}, err
+	}
+	return vacInfo, nil
 }
