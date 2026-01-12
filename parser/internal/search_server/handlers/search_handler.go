@@ -73,7 +73,7 @@ func (s *SearchHandler) ProcessQuickRequest(c *gin.Context) {
 
 	// парсим данные запроса из JSON в необходимую структуру
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"Message": "invalid request", "error": err.Error()})
 		return
 	}
 
@@ -83,4 +83,47 @@ func (s *SearchHandler) ProcessQuickRequest(c *gin.Context) {
 		return
 	}
 
+	// вызываем поиск вакансии по ID
+	resultDoamin, err := s.service.GetBriefVacancyDetails(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Конвертация Domain -> DTO
+	resultDTO := converters.ConvertVacancyToDTO(resultDoamin)
+
+	// отдаём результат клиенту
+	c.JSON(http.StatusOK, resultDTO)
+}
+
+// метод получения детальной информации по вакансии (отдельный запрос на внешний источник)
+func (s SearchHandler) ProcessDetailedVacancyInfo(c *gin.Context) {
+	// Парсинг DTO запроса
+	var req dto.SearchVacancyRequest
+
+	// парсим данные запроса из JSON в необходимую структуру
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"Message": "invalid request", "error": err.Error()})
+		return
+	}
+
+	// проводим валидацию и нормализацию входных данных
+	if err := req.ValidateAndNormalize(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// вызываем поиск расширенной информации вакансии по ID
+	resultDomain, err := s.service.GetVacancyDetails(c, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Конвертация Domain -> DTO
+	resultDTO := converters.ConvertVacancyResultInfoDomainToDTO(resultDomain)
+
+	// отдаём результат клиенту
+	c.JSON(http.StatusOK, resultDTO)
 }
