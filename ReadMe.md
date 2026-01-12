@@ -1,6 +1,8 @@
 Pet - project: vacancy parser (web version)
 stack: golang, gin
 
+to start the server, please run main.go (parser/cmd/vacancy_search_server)
+
 done:
 
 - have made design of project
