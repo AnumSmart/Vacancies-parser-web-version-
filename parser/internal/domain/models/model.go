@@ -4,10 +4,10 @@ import "time"
 
 // общая структура поиска
 type SearchParams struct {
-	Text     string
-	Location string
-	PerPage  int
-	Page     int
+	Text    string
+	Country string
+	PerPage int
+	Page    int
 }
 
 // Стуктура общей вакансии для всех ответов

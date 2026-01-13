@@ -94,8 +94,8 @@ func (p *SJParser) buildURL(params models.SearchParams) (string, error) {
 	}
 
 	// добавляем параметр - локация
-	if params.Location != "" {
-		query.Set("town", p.convertArea(params.Location))
+	if params.Country != "" {
+		query.Set("country", p.convertArea(params.Country))
 	}
 
 	// добавляем параетры страниц

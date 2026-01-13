@@ -86,6 +86,22 @@ func (p *HHParser) buildURL(params models.SearchParams) (string, error) {
 		return "", err
 	}
 
+	// мапа кодов стран в классификторе HH.ru
+	presavedCountries := map[string]int{
+		"Россия":       113,
+		"Украина":      5,
+		"Беларусь":     16,
+		"Казахстан":    40,
+		"Азербайджан":  97,
+		"Армения":      4,
+		"Грузия":       28,
+		"Кыргызтан":    115,
+		"Таджикистан":  1396,
+		"Туркменистан": 100,
+		"Узбекистан":   99,
+		"Молдова":      11,
+	}
+
 	// заводим переменную, где будут хнаниться значения
 	query := u.Query()
 
@@ -95,8 +111,12 @@ func (p *HHParser) buildURL(params models.SearchParams) (string, error) {
 	}
 
 	// добавляем параметр - локация
-	if params.Location != "" {
-		query.Set("location", params.Location)
+	if params.Country != "" {
+		countryId, ok := presavedCountries[params.Country]
+		if !ok {
+			query.Set("area", strconv.Itoa(113))
+		}
+		query.Set("area", strconv.Itoa(countryId))
 	}
 
 	// добавляем параетры страниц

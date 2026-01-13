@@ -1,55 +1,116 @@
-Pet - project: vacancy parser (web version)
-stack: golang, gin
+Job Parser - Парсер вакансий (Web версия)
 
-to start the server, please run main.go (parser/cmd/vacancy_search_server)
+Многофункциональный парсер вакансий с поддержкой нескольких источников
+(HH.ru, другие источники - опционально) и продвинутыми механизмами управления нагрузкой.
 
-done:
+✨ Особенности:
+Мульти-источники: Поддержка HH.ru и SuperJob.ru с возможностью легкого добавления новых источников
+Продвинутое кэширование: Шардированный in-memory кэш для поиска и reverse index для доступа по ID
+Управление нагрузкой: Rate limiting, circuit breakers, семафоры для каждого парсера
+Отказоустойчивость: Глобальный health monitoring и автоматическое обновление статусов парсеров
+Масштабируемость: Очередь задач на основе дженериков и система воркеров
+Тестирование: набор unit-тестов для ключевых компонентов
 
-- have made design of project
-- have made the mechanism of serarching vacancies fron 2 sourses (HH.ru, SuperJob.ru) (parser manager, able to add new sourses of vacancies)
-- have made sharded inmemory cache for searching (founded vacancies)
-- have made sharded inmemory cache - to get vacancy by ID (use reverse index)
-- have made rate limiter for each parser (limiting quantity of requests for each service)
-- have made seatch by ID in sharded inmemory cache (reverse index)
-- have made "the semaphore" pattern for each parser (concurrency limiting)
-- have made circuit breaker for each parser (for blocking unavailable service)
-- have made the mechanism of parser creation (factory pattern)
-- have made logics of getting data (from .env and from .yml)
-- have made global Circuit Breaker - health monitoring [in parsers manager] (**_ needed load testing _**)
-- have made queue for parsers manager, have made workers mechanism, workers are handling the jobs in queue
-- have made global "semaphore" - limiting quantity of searchings in parsers manager (resourse contron of server)
-- have made parsers status manager, heath check control of parsers
-- have made the mechanism of update parsers ststus through time interval (time interval - in config)
-- have made FIFO queue based on generics, as input - job interface (queue gets jobs interfaces)
-- have made unit tests for: rate limiter, circuit breaker, sharded inmemory cache, queue
-- have made coucurrent search of vacancies through some quantity of sourses
-
-to be done:
-
-- make layers: service, DTO, REPO
-- logging
-- handlers
-- fix methods of parsers manager
-- create data convertors between layers
-- create repo layer (working with caches)
-
-Architecture:
-user request
+✨ Архитектура:
+Запрос пользователя (сервер обрабатывает нужные эндпоинты)
 ↓
-┌─────────────────────────────────┐
-│ PARSER MANAGER level ← Global control
-│ • Global semaphore
-│ • Queue
-│ • Global circuit breaker
-└─────────────────────────────────┘
+Уровень PARSER MANAGER (Глобальный контроль)
+• Глобальный семафор  
+ • Очередь задач (FIFO на дженериках)  
+ • Глобальный circuit breaker  
+ • Мониторинг здоровья парсеров  
+ • Workers pool  
 ↓
-┌─────────────────────────────────┐
-│ PARSER level (HH/SuperJob) ← Individual control
-│ • Individual semaphore
-│ • Sourse Rate limiter
-│ • Sourse Circuit breaker
-└─────────────────────────────────┘
+Уровень PARSER (HH/SuperJob)  
+ • Индивидуальный семафор  
+ • Rate limiter источника  
+ • Circuit breaker источника  
+ • Factory pattern для создания парсеров
 ↓
-External API
+Внешние API (HH.ru, SuperJob.ru)
 
-repo: https://github.com/AnumSmart/Job_parser.git
+🚀 Быстрый старт:
+Требования
+Go 1.21 или выше
+API ключ для SuperJob.ru (опционально)
+
+✨ Установка:
+
+# Клонирование репозитория
+
+git clone https://github.com/AnumSmart/Vacancies-parser-web-version-.git
+cd Job_parser/parser
+
+# Установка зависимостей
+
+go mod tidy
+
+✨ Конфигурация:
+Создайте файл .env в корне проекта:
+
+# multi-search context timeout
+
+CONC_SEARCH_TIMEOUT = 30
+
+PARSERS_CONFIG_ADDRESS_STRING = "......\\Job_Parser\\parser\\parsersConfig.yml"
+CACHES_CONFIG_ADDRESS_STRING = "......\\Job_Parser\\parser\\cachesConfig.yml"
+PARSERS_MANAGER_ADDRESS_STRING = "......\\Job_Parser\\parser\\parsersManagerConfig.yml"
+HEALTH_CHECK_CONFIG_ADDRESS_STRING = "......\\Job_Parser\\parser\\healthCheckConfig.yml"
+SERVER_CONFIG_ADDRESS_STRING = "......\\Job_Parser\\parser\\serverConfig.yml"
+
+✨ Запуск:
+
+# Запуск с использованием Gin
+
+go run cmd/vacancy_search_server/main.go
+
+🔧 Компоненты системы:
+
+1. Парсеры (Parsers)
+   Factory Pattern: Легкое добавление новых источников
+   Индивидуальные лимиты: Rate limiting для каждого API
+   Circuit Breakers: Автоматическое отключение недоступных сервисов
+
+2. Кэширование
+   Шардированный кэш поиска: Распределение нагрузки между шардами
+   Reverse Index: Быстрый доступ к вакансиям по ID
+   In-memory хранение: Высокая производительность
+
+3. Управление нагрузкой
+   Глобальный семафор: Контроль общего количества поисков
+   Очередь задач: FIFO очередь на основе дженериков
+   Workers pool: Пул воркеров для обработки задач
+
+4. Мониторинг
+   Health checks: Регулярная проверка доступности парсеров
+   Parser Status Manager: Централизованное управление статусами
+
+🔄 Планируемые улучшения:
+Реализация слоев: Service, DTO, Repository
+Расширенное логирование
+Интеграционные тесты
+Docker контейнеризация
+Prometheus метрики
+Swagger документация API
+Разработка микросервиса авторизации
+
+Добавление нового источника вакансий:
+Создайте новый парсер в internal/parser/parsers/
+Реализуйте интерфейс Parser
+Добавьте в фабрику parser/factory.go
+Настройте rate limits в конфигурации
+Добавьте тесты
+
+🤝 Вклад в проект:
+Приветствуются contributions! Пожалуйста, следуйте этим шагам:
+Форкните репозиторий
+Создайте ветку для фичи (git checkout -b feature/amazing-feature)
+Закоммитьте изменения (git commit -m 'Add some amazing feature')
+Запушьте в ветку (git push origin feature/amazing-feature)
+Откройте Pull Request
+
+📞 Контакты
+AnumSmart - GitHub
+Проект: https://github.com/AnumSmart/Vacancies-parser-web-version-.git
+
+⭐ Если проект был полезен, поставьте звезду на GitHub!
