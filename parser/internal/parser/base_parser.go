@@ -114,6 +114,7 @@ func (p *BaseParser) SearchVacancies(ctx context.Context, params models.SearchPa
 			return err
 		}
 
+		fmt.Printf("ссылка для поиска: %s\n", apiURL)
 		// Выполнение HTTP запроса
 		resp, err := p.executeRequest(ctx, apiURL)
 		if err != nil {

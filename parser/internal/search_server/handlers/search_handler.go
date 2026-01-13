@@ -33,7 +33,7 @@ func (s *SearchHandler) ProcessMultisearchRequest(c *gin.Context) {
 
 	// парсим данные запроса из JSON в необходимую структуру
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"Message": "invalid request", "error": err.Error()})
 		return
 	}
 

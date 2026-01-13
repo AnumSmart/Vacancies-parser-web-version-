@@ -69,7 +69,7 @@ func genHashFromSearchParam(params models.SearchParams) (string, error) {
 		// Добавьте другие поля из SearchParams
 	}{
 		Text:    params.Text,
-		Area:    params.Location,
+		Area:    params.Country,
 		PerPage: params.PerPage,
 		Page:    params.Page,
 	}

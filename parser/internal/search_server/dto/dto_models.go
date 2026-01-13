@@ -4,10 +4,10 @@ import "errors"
 
 // SearchRequest - DTO для входящего запроса
 type SearchRequest struct {
-	Query    string `json:"query" binding:"required,min=2,max=100"`
-	Location string `json:"location"`
-	PerPage  int    `json:"per_page" binding:"min=1,max=100"`
-	Page     int    `json:"page" binding:"min=0"`
+	Query   string `json:"query" binding:"required,min=2,max=100"`
+	Country string `json:"country"`
+	PerPage int    `json:"per_page" binding:"min=1,max=100"`
+	Page    int    `json:"page" binding:"min=0"`
 }
 
 type SearchVacancyRequest struct {

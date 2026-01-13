@@ -10,10 +10,10 @@ import (
 // в параменте передаём значение, чтобы не модифицировать входные данные
 func SearchRequestDTOToParamsDomain(req dto.SearchRequest) models.SearchParams {
 	return models.SearchParams{
-		Text:     req.Query,
-		Location: req.Location,
-		PerPage:  req.PerPage,
-		Page:     req.Page,
+		Text:    req.Query,
+		Country: req.Country,
+		PerPage: req.PerPage,
+		Page:    req.Page,
 	}
 }
 
