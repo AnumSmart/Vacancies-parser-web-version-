@@ -27,7 +27,7 @@ func main() {
 	// создаём сервисы
 
 	// Создаем HTTP-сервер
-	server, err := search_server.NewServer(context.Background(), deps.Config.Server, deps.SearchHandler)
+	server, err := search_server.NewSearchServer(ctx, deps.Config.Server, deps.SearchHandler)
 	if err != nil {
 		panic("Failed to create server!")
 	}
@@ -52,15 +52,14 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer shutdownCancel()
 
-	/*
-		// Остановка сервисов
-		vacancyService.Shutdown()
-	*/
-
 	// Остановка сервера
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("Error during server shutdown: %v", err)
 	}
 
 	fmt.Println("👋 Сервер остановлен")
+
+	// Остановка сервисов
+	server.Handler.ShutDown(ctx)
+
 }

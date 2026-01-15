@@ -6,19 +6,21 @@ import (
 	"net/http"
 	"search_service/internal/search_server/handlers"
 	"shared/config"
+	"shared/toolkit"
 
 	"github.com/gin-gonic/gin"
 )
 
+// структура сервера поиска вакансий
 type VacancySearchServer struct {
 	httpServer *http.Server
 	router     *gin.Engine
 	config     *config.ServerConfig
-	handler    *handlers.SearchHandler
+	Handler    *handlers.SearchHandler
 }
 
 // Конструктор для сервера
-func NewServer(ctx context.Context, config *config.ServerConfig, handler *handlers.SearchHandler) (*VacancySearchServer, error) {
+func NewSearchServer(ctx context.Context, config *config.ServerConfig, handler *handlers.SearchHandler) (*VacancySearchServer, error) {
 	// создаём экземпляр роутера
 	router := gin.Default()
 	err := router.SetTrustedProxies(nil)
@@ -33,21 +35,21 @@ func NewServer(ctx context.Context, config *config.ServerConfig, handler *handle
 		c.Next()
 	})
 
-	router.Use(CORSMiddleware()) // используем для всех маршруторв работу с CORS
+	router.Use(toolkit.CORSMiddleware()) // используем для всех маршруторв работу с CORS
 
 	return &VacancySearchServer{
 		router:  router,
 		config:  config,
-		handler: handler,
+		Handler: handler,
 	}, nil
 }
 
 // Метод для маршрутизации сервера
 func (s *VacancySearchServer) SetUpRoutes() {
-	s.router.GET("/hello", s.handler.EchoSearchServer)                  // тестовый ендпоинт
-	s.router.POST("/multisearch", s.handler.ProcessMultisearchRequest)  // эндпоинт поиска всех доступных вакансий из всех доступных источников (согласно строке поиска)
-	s.router.POST("/quickoverview", s.handler.ProcessQuickRequest)      // эндпоинт получения краткой инфы по конкретной найденной вакансии
-	s.router.POST("/vac_details", s.handler.ProcessDetailedVacancyInfo) // эндпоинт получения подробной инфы по конкретной вакансии (отдельный запрос на внешний сервис)
+	s.router.GET("/hello", s.Handler.EchoSearchServer)                  // тестовый ендпоинт
+	s.router.POST("/multisearch", s.Handler.ProcessMultisearchRequest)  // эндпоинт поиска всех доступных вакансий из всех доступных источников (согласно строке поиска)
+	s.router.POST("/quickoverview", s.Handler.ProcessQuickRequest)      // эндпоинт получения краткой инфы по конкретной найденной вакансии
+	s.router.POST("/vac_details", s.Handler.ProcessDetailedVacancyInfo) // эндпоинт получения подробной инфы по конкретной вакансии (отдельный запрос на внешний сервис)
 }
 
 // Метод для запуска сервера
@@ -72,66 +74,4 @@ func (s *VacancySearchServer) Shutdown(ctx context.Context) error {
 
 	log.Println("Server shutdown completed")
 	return nil
-}
-
-// middleware для CORS политики
-func CORSMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Список разрешенных доменов
-		allowedOrigins := []string{
-			"http://localhost:8080",
-		}
-
-		origin := c.Request.Header.Get("Origin")
-
-		// Если Origin не указан (например, запрос из curl или postman)
-		if origin == "" {
-			// Разрешаем любые источники (или задайте конкретные)
-			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		} else {
-			// Проверяем по списку разрешенных
-			isAllowed := false
-			for _, domain := range allowedOrigins {
-				if domain == origin {
-					isAllowed = true
-					break
-				}
-			}
-
-			if isAllowed {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-			} else {
-				c.AbortWithStatusJSON(403, gin.H{
-					"error":  "Origin not allowed",
-					"origin": origin,
-				})
-				return
-			}
-		}
-
-		// Разрешенные методы
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, PATCH")
-
-		// Разрешенные заголовки
-		c.Writer.Header().Set("Access-Control-Allow-Headers",
-			"Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, Accept, Origin, Cache-Control, X-Requested-With")
-
-		// Заголовки, которые можно читать клиенту
-		c.Writer.Header().Set("Access-Control-Expose-Headers",
-			"Content-Length, Content-Type, Authorization")
-
-		// Разрешаем отправку кук/авторизации
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		// Кеширование предзапроса (в секундах)
-		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	}
 }

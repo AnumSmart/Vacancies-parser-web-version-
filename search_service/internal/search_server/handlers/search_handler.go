@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"search_service/internal/search_server/converters"
 	"search_service/internal/search_server/dto"
@@ -126,4 +127,9 @@ func (s SearchHandler) ProcessDetailedVacancyInfo(c *gin.Context) {
 
 	// отдаём результат клиенту
 	c.JSON(http.StatusOK, resultDTO)
+}
+
+// метод хэндлера для остановки сервиса поиска
+func (s *SearchHandler) ShutDown(ctx context.Context) {
+	s.service.StopServices(ctx)
 }
