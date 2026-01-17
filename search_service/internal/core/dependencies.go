@@ -13,8 +13,8 @@ import (
 	"shared/inmemory_cache"
 )
 
-// Dependencies содержит все общие зависимости
-type Dependencies struct {
+// SearchServiceDependencies содержит все общие зависимости
+type SearchServiceDependencies struct {
 	Config              *configs.Config
 	SearchCache         *inmemory_cache.InmemoryShardedCache
 	VacancyIndex        *inmemory_cache.InmemoryShardedCache
@@ -26,7 +26,7 @@ type Dependencies struct {
 }
 
 // InitDependencies инициализирует общие зависимости
-func InitDependencies() (*Dependencies, error) {
+func InitDependencies() (*SearchServiceDependencies, error) {
 	// Получаем количество CPU
 	currentMaxProcs := runtime.GOMAXPROCS(-1)
 	fmt.Printf("Текущее значение GOMAXPROCS: %d\n", currentMaxProcs)
@@ -88,7 +88,7 @@ func InitDependencies() (*Dependencies, error) {
 	searchHandler := handlers.NewSearchHandler(searchService)
 
 	// возвращаем указатель на структуру зависимостей
-	return &Dependencies{
+	return &SearchServiceDependencies{
 		Config:              conf,
 		SearchCache:         searchCache,
 		VacancyIndex:        vacancyIndex,

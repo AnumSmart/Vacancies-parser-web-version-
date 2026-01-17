@@ -14,6 +14,7 @@ type SearchServiceInterface interface {
 	SearchVacancies(ctx context.Context, params models.SearchParams) ([]models.SearchVacanciesResult, error)
 	GetBriefVacancyDetails(getVacReq dto.SearchVacancyRequest) (models.Vacancy, error)
 	GetVacancyDetails(ctx context.Context, getVacReq dto.SearchVacancyRequest) (models.SearchVacancyDetailesResult, error)
+	StopServices(ctx context.Context)
 }
 
 // структура поискового сервиса
@@ -103,4 +104,9 @@ func (s *SearchService) GetVacancyDetails(ctx context.Context, getVacReq dto.Sea
 		return models.SearchVacancyDetailesResult{}, err
 	}
 	return vacInfo, nil
+}
+
+// метод для остановки всех воркеров
+func (s *SearchService) StopServices(ctx context.Context) {
+	s.searchManager.Shutdown()
 }
