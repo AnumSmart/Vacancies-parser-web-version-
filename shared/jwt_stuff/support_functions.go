@@ -13,8 +13,8 @@ import (
 )
 
 // вспомогательная функция для создании структуры информации для JWT
-func NewClaims(TokenExp time.Duration, email, tokenType, issuer string) CustomClaims {
-	newClaim := CustomClaims{
+func NewClaims(TokenExp time.Duration, email, tokenType, issuer string) jwt.Claims {
+	return &CustomClaims{
 		Email:     email,
 		TokenType: tokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -24,7 +24,6 @@ func NewClaims(TokenExp time.Duration, email, tokenType, issuer string) CustomCl
 			ID:        uuid.New().String(),
 		},
 	}
-	return newClaim
 }
 
 // вспомогательная фукнция парсинга токена с клэймами
