@@ -62,6 +62,8 @@ func (s *VacancySearchServer) Run() error {
 		Handler: s.router,
 	}
 
+	log.Println("https flag status: ", s.config.EnableTLS)
+
 	// если установлен флаг о том, что нужно использовать HTTPS, то запускаем сервер, который работает с HTTPS
 	if s.config.EnableTLS {
 		// Создаем TLS конфигурацию

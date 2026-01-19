@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 // структура для конфига сервера (HTTPS)
 type ServerConfig struct {
@@ -10,16 +13,15 @@ type ServerConfig struct {
 	WriteTimeout   time.Duration `yaml:"write_timeout"`
 	IdleTimeout    time.Duration `yaml:"idle_timeout"`
 	MaxHeaderBytes int           `yaml:"max_header_bytes"`
-
-	// TLS конфигурация
-	EnableTLS   bool   `yaml:"enable_tls"`    // флаг, который говорит о том, что нужно использовать HTTPS
-	TLSCertFile string `yaml:"tls_cert_file"` // путь к файлу сертиыфикации (пасспорт сервера)
-	TLSKeyFile  string `yaml:"tls_key_file"`  // путь к приватному ключу (сертификация)
-	TLSPort     string `yaml:"tls_port"`      // стандартный HTTPS порт
+	EnableTLS      bool          `yaml:"enable_tls"`    // флаг, который говорит о том, что нужно использовать HTTPS
+	TLSCertFile    string        `yaml:"tls_cert_file"` // путь к файлу сертиыфикации (пасспорт сервера)
+	TLSKeyFile     string        `yaml:"tls_key_file"`  // путь к приватному ключу (сертификация)
+	TLSPort        string        `yaml:"tls_port"`      // стандартный HTTPS порт
 }
 
 // функция для создания конфига сервера по - дефолту
-func DefaultServerConfig() *ServerConfig {
+func UseDefaultServerConfig() *ServerConfig {
+	log.Println("Была вызвана функция загрузки дэфолтного конфига для сервера!")
 	return &ServerConfig{
 		Host:           "localhost",
 		Port:           "8080",
