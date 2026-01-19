@@ -57,7 +57,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
 
-	serverConfig, err := config.LoadYAMLConfig[config.ServerConfig](os.Getenv("SERVER_CONFIG_ADDRESS_STRING"), config.DefaultServerConfig)
+	serverConfig, err := config.LoadYAMLConfig[config.ServerConfig](os.Getenv("SERVER_CONFIG_ADDRESS_STRING"), config.UseDefaultServerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}

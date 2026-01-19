@@ -1,11 +1,10 @@
-server:
-  host: 'localhost'
-  port: '8080'
-  read_timeout: 10s
-  write_timeout: 10s
-  idle_imeout: 60s
-  max_header_bytes: 1048576 # 1 мегабайт
-  enable_tls: true
-  tls_cert_file: './certs/localhost.pem'
-  tls_key_file: './certs/localhost-key.pem'
-  tls_port: '8443'
+host: 'localhost'
+port: '8080'
+read_timeout: 10s
+write_timeout: 10s
+idle_imeout: 60s
+max_header_bytes: 1048576
+enable_tls: false
+tls_cert_file: './certs/localhost.pem'
+tls_key_file: './certs/localhost-key.pem'
+tls_port: '8443'

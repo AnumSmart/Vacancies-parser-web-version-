@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -19,23 +20,27 @@ func LoadYAMLConfig[T any](configPath string, fn func() *T) (*T, error) {
 
 	// Если configPath == "" (пустая строка), сразу возвращаются дефолтные значения.
 	if configPath == "" {
+		fmt.Println("условие 1")
 		return config, nil
 	}
 
 	// Если файл по указанному пути не существует, возвращаются дефолтные значения БЕЗ ошибки.
 	if _, err := os.Stat(configPath); errors.Is(err, fs.ErrNotExist) {
+		fmt.Println("условие 2")
 		return config, nil
 	}
 
 	// Если файл существует, но его не удалось прочитать или распарсить — возвращается ошибка.
 	yamlFile, err := os.ReadFile(configPath)
 	if err != nil {
-		return nil, err
+		fmt.Println("условие 3")
+		return config, err
 	}
 
 	// пробуем анмаршалить конфиг из yml файла в структуру нужного типа
-	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
-		return nil, err
+	if err := yaml.Unmarshal(yamlFile, config); err != nil {
+		fmt.Println("условие 4")
+		return config, err
 	}
 
 	return config, nil

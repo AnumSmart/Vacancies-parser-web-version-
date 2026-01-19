@@ -3,6 +3,7 @@ package core
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"search_service/configs"
 	"search_service/internal/parser"
@@ -36,6 +37,8 @@ func InitDependencies() (*SearchServiceDependencies, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
+
+	log.Println(conf.Server.EnableTLS)
 
 	//создаём экземпляр inmemory cache для результатов поиска вакансий
 	searchCache, err := inmemory_cache.NewInmemoryShardedCache(conf.Cache.NumOfShards, conf.Cache.SearchCacheConfig.SearchCacheCleanUp)
