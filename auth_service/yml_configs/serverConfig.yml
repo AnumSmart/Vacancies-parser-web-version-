@@ -1,10 +1,10 @@
 host: 'localhost'
 port: '8081'
-read_timeout: 10s
-write_timeout: 10s
-idle_imeout: 60s
+read_timeout: 5s
+write_timeout: 7s
+idle_imeout: 40s
 max_header_bytes: 1048576
 enable_tls: false
 tls_cert_file: './certs/localhost.pem'
 tls_key_file: './certs/localhost-key.pem'
-tls_port: '8443'
+tls_port: '8444'

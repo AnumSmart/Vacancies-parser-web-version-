@@ -26,7 +26,7 @@ type SearchServiceDependencies struct {
 	SearchHandler       *handlers.SearchHandler
 }
 
-// InitDependencies инициализирует общие зависимости
+// InitDependencies инициализирует общие зависимости для search_service
 func InitDependencies() (*SearchServiceDependencies, error) {
 	// Получаем количество CPU
 	currentMaxProcs := runtime.GOMAXPROCS(-1)

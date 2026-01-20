@@ -58,28 +58,26 @@ func (s *VacancySearchServer) Run() error {
 	s.SetUpRoutes()
 
 	s.httpServer = &http.Server{
-		Addr:    s.config.Addr(),
 		Handler: s.router,
 	}
 
-	log.Println("https flag status: ", s.config.EnableTLS)
-
-	// если установлен флаг о том, что нужно использовать HTTPS, то запускаем сервер, который работает с HTTPS
 	if s.config.EnableTLS {
-		// Создаем TLS конфигурацию
+		// Используем TLS порт для HTTPS
+		s.httpServer.Addr = s.config.TLSAddr()
+
 		tlsConfig, err := s.config.CreateTLSConfig()
 		if err != nil {
 			return fmt.Errorf("failed to create TLS config: %w", err)
 		}
-
 		s.httpServer.TLSConfig = tlsConfig
 
-		// Запускаем HTTPS сервер
 		log.Printf("Starting HTTPS server on %s", s.config.TLSAddr())
 		return s.httpServer.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
 	}
 
-	log.Println("Server is running on port 8080")
+	// Используем обычный порт для HTTP
+	s.httpServer.Addr = s.config.Addr()
+	log.Printf("Starting HTTP server on %s", s.config.Addr())
 	return s.httpServer.ListenAndServe()
 }
 

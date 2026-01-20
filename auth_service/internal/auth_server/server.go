@@ -4,6 +4,7 @@ package authserver
 import (
 	"auth_service/internal/auth_server/handlers"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"shared/config"
@@ -48,7 +49,6 @@ func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler *ha
 // Метод для маршрутизации сервера
 func (a *AuthServer) SetUpRoutes() {
 	a.router.GET("/hello", a.Handler.EchoAuthServer) // тестовый ендпоинт
-
 }
 
 // Метод для запуска сервера
@@ -56,10 +56,26 @@ func (a *AuthServer) Run() error {
 	a.SetUpRoutes()
 
 	a.httpServer = &http.Server{
-		Addr:    a.config.Addr(),
 		Handler: a.router,
 	}
-	log.Println("Server is running on port 8080")
+
+	if a.config.EnableTLS {
+		// Используем TLS порт для HTTPS
+		a.httpServer.Addr = a.config.TLSAddr()
+
+		tlsConfig, err := a.config.CreateTLSConfig()
+		if err != nil {
+			return fmt.Errorf("failed to create TLS config: %w", err)
+		}
+		a.httpServer.TLSConfig = tlsConfig
+
+		log.Printf("Starting HTTPS server on %s", a.config.TLSAddr())
+		return a.httpServer.ListenAndServeTLS(a.config.TLSCertFile, a.config.TLSKeyFile)
+	}
+
+	// Используем обычный порт для HTTP
+	a.httpServer.Addr = a.config.Addr()
+	log.Printf("Starting HTTP server on %s", a.config.Addr())
 	return a.httpServer.ListenAndServe()
 }
 
