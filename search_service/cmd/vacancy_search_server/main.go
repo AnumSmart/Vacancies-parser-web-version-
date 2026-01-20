@@ -24,8 +24,6 @@ func main() {
 		log.Fatalf("Failed to initialize dependencies: %v", err)
 	}
 
-	// создаём сервисы
-
 	// Создаем HTTP-сервер
 	server, err := search_server.NewSearchServer(ctx, deps.Config.Server, deps.SearchHandler)
 	if err != nil {
