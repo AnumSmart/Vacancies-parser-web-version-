@@ -13,10 +13,13 @@ type ServerConfig struct {
 	WriteTimeout   time.Duration `yaml:"write_timeout"`
 	IdleTimeout    time.Duration `yaml:"idle_timeout"`
 	MaxHeaderBytes int           `yaml:"max_header_bytes"`
-	EnableTLS      bool          `yaml:"enable_tls"`    // флаг, который говорит о том, что нужно использовать HTTPS
-	TLSCertFile    string        `yaml:"tls_cert_file"` // путь к файлу сертиыфикации (пасспорт сервера)
-	TLSKeyFile     string        `yaml:"tls_key_file"`  // путь к приватному ключу (сертификация)
-	TLSPort        string        `yaml:"tls_port"`      // стандартный HTTPS порт
+	// дополнительные поля, если нужно чтобы эта реализация сервера могла использовать https
+	/*
+		EnableTLS      bool          `yaml:"enable_tls"`    // флаг, который говорит о том, что нужно использовать HTTPS
+		TLSCertFile    string        `yaml:"tls_cert_file"` // путь к файлу сертиыфикации (пасспорт сервера)
+		TLSKeyFile     string        `yaml:"tls_key_file"`  // путь к приватному ключу (сертификация)
+		TLSPort        string        `yaml:"tls_port"`      // стандартный HTTPS порт
+	*/
 }
 
 // функция для создания конфига сервера по - дефолту
@@ -30,11 +33,13 @@ func UseDefaultServerConfig() *ServerConfig {
 		IdleTimeout:    60 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 
-		// TLS значения по умолчанию
-		EnableTLS:   false,
-		TLSCertFile: "certs/localhost.pem",
-		TLSKeyFile:  "certs/localhost-key.pem",
-		TLSPort:     "8443",
+		/*
+			// TLS значения по умолчанию
+			EnableTLS:   false,
+			TLSCertFile: "certs/localhost.pem",
+			TLSKeyFile:  "certs/localhost-key.pem",
+			TLSPort:     "8443",
+		*/
 	}
 }
 
@@ -43,6 +48,7 @@ func (c *ServerConfig) Addr() string {
 	return c.Host + ":" + c.Port
 }
 
+/*
 // метод для формирования TLS адреса (если используется HTTPS)
 func (c *ServerConfig) TLSAddr() string {
 	return c.Host + ":" + c.TLSPort
@@ -64,6 +70,7 @@ func (c *ServerConfig) ValidateTLS() error {
 
 	return nil
 }
+*/
 
 // Вспомогательная структура для ошибок конфигурации
 type ConfigError struct {

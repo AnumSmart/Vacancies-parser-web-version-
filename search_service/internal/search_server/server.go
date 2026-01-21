@@ -2,7 +2,6 @@ package search_server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"search_service/internal/search_server/handlers"
@@ -61,19 +60,22 @@ func (s *VacancySearchServer) Run() error {
 		Handler: s.router,
 	}
 
-	if s.config.EnableTLS {
-		// Используем TLS порт для HTTPS
-		s.httpServer.Addr = s.config.TLSAddr()
+	// та секция, если нужно чтобы этот конкретный сервер мог обрабатывать https
+	/*
+		if s.config.EnableTLS {
+			// Используем TLS порт для HTTPS
+			s.httpServer.Addr = s.config.TLSAddr()
 
-		tlsConfig, err := s.config.CreateTLSConfig()
-		if err != nil {
-			return fmt.Errorf("failed to create TLS config: %w", err)
+			tlsConfig, err := s.config.CreateTLSConfig()
+			if err != nil {
+				return fmt.Errorf("failed to create TLS config: %w", err)
+			}
+			s.httpServer.TLSConfig = tlsConfig
+
+			log.Printf("Starting HTTPS server on %s", s.config.TLSAddr())
+			return s.httpServer.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
 		}
-		s.httpServer.TLSConfig = tlsConfig
-
-		log.Printf("Starting HTTPS server on %s", s.config.TLSAddr())
-		return s.httpServer.ListenAndServeTLS(s.config.TLSCertFile, s.config.TLSKeyFile)
-	}
+	*/
 
 	// Используем обычный порт для HTTP
 	s.httpServer.Addr = s.config.Addr()
