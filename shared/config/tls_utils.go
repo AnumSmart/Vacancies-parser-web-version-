@@ -1,4 +1,4 @@
-// описание работы с TLS сертификатами
+// описание работы с TLS сертификатами (только для индививуального использования HTTPS у сервера. т.е. API Gareway типа nginx не используется)
 package config
 
 import (
@@ -61,6 +61,7 @@ func CheckCertificateValidity(certFile string) error {
 	return nil
 }
 
+/*
 // CreateTLSConfig создает конфигурацию TLS для HTTP сервера
 func (c *ServerConfig) CreateTLSConfig() (*tls.Config, error) {
 	if !c.EnableTLS {
@@ -97,3 +98,4 @@ func (c *ServerConfig) CreateTLSConfig() (*tls.Config, error) {
 		},
 	}, nil
 }
+*/

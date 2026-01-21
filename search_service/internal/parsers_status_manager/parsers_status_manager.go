@@ -15,7 +15,7 @@ import (
 // ключ - это имя экземпляра парсера
 type ParserStatusManager struct {
 	parsersStats map[string]*search_interfaces.ParserStatus // мапа статусов парсеров
-	config       *configs.Config                            // конфиг
+	config       *configs.SearchServiceConfig               // конфиг
 	client       search_interfaces.HealthClient             // клиент для проверки
 	initComplete chan struct{}                              // Сигнал завершения инициализации
 	stopChan     chan struct{}
@@ -24,7 +24,7 @@ type ParserStatusManager struct {
 }
 
 // конструктор для нового менеджера статусов парсеров
-func NewParserStatusManager(conf *configs.Config, parsers ...search_interfaces.Parser) *ParserStatusManager {
+func NewParserStatusManager(conf *configs.SearchServiceConfig, parsers ...search_interfaces.Parser) *ParserStatusManager {
 	psm := &ParserStatusManager{
 		parsersStats: make(map[string]*search_interfaces.ParserStatus),
 		config:       conf, // конфиг для коиента health check

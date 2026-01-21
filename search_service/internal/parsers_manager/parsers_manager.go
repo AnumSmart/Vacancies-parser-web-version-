@@ -17,7 +17,7 @@ import (
 // структура менеджера парсеров
 type ParsersManager struct {
 	parsers              []search_interfaces.Parser             // парсеры, которыми оперирует мэнеджер
-	config               *configs.Config                        // общий конфиг
+	config               *configs.SearchServiceConfig           // общий конфиг
 	SearchCache          *inmemory_cache.InmemoryShardedCache   // поисковый кэш
 	VacancyIndex         *inmemory_cache.InmemoryShardedCache   // кэш для обратного индекса
 	vacancyDetails       *inmemory_cache.InmemoryShardedCache   // кэш для деталей вакансии
@@ -58,7 +58,7 @@ func NewPMLoad(numCPUCores int) *PMLoad {
 }
 
 // Конструктор для мэнеджера парсинга из разных источников
-func NewParserManager(config *configs.Config,
+func NewParserManager(config *configs.SearchServiceConfig,
 	numCPUCores int,
 	searchCache *inmemory_cache.InmemoryShardedCache,
 	vacancyIndex *inmemory_cache.InmemoryShardedCache,

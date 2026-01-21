@@ -4,7 +4,6 @@ package authserver
 import (
 	"auth_service/internal/auth_server/handlers"
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"shared/config"
@@ -18,11 +17,11 @@ type AuthServer struct {
 	httpServer *http.Server
 	router     *gin.Engine
 	config     *config.ServerConfig
-	Handler    *handlers.AuthHandler
+	Handler    handlers.AuthHandlerInterface
 }
 
 // Конструктор для сервера
-func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler *handlers.AuthHandler) (*AuthServer, error) {
+func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler handlers.AuthHandlerInterface) (*AuthServer, error) {
 	// создаём экземпляр роутера
 	router := gin.Default()
 	err := router.SetTrustedProxies(nil)
@@ -58,21 +57,6 @@ func (a *AuthServer) Run() error {
 	a.httpServer = &http.Server{
 		Handler: a.router,
 	}
-
-	if a.config.EnableTLS {
-		// Используем TLS порт для HTTPS
-		a.httpServer.Addr = a.config.TLSAddr()
-
-		tlsConfig, err := a.config.CreateTLSConfig()
-		if err != nil {
-			return fmt.Errorf("failed to create TLS config: %w", err)
-		}
-		a.httpServer.TLSConfig = tlsConfig
-
-		log.Printf("Starting HTTPS server on %s", a.config.TLSAddr())
-		return a.httpServer.ListenAndServeTLS(a.config.TLSCertFile, a.config.TLSKeyFile)
-	}
-
 	// Используем обычный порт для HTTP
 	a.httpServer.Addr = a.config.Addr()
 	log.Printf("Starting HTTP server on %s", a.config.Addr())
