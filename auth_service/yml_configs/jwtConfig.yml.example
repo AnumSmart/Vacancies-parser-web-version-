@@ -1,0 +1,4 @@
+access_secret: 'YOUR_ACCESS_SECRET_HERE_MIN_32_CHARS'
+refresh_secret: 'YOUR_REFRESH_SECRET_HERE_DIFFERENT'
+access_token_expiry: 15m
+refresh_token_expiry: 720h

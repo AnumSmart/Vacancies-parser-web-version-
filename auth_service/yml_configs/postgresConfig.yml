@@ -1,4 +1,4 @@
-dsn: 'host=localhost user=admin password=my_pass dbname=users port=5432 sslmode=disable'
+dsn: 'host=localhost user=AnumSmart password=admin_26 dbname=users port=5432 sslmode=disable'
 max_conns: 10
 min_conns: 2
 health_check_period: 1m

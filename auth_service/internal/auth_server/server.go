@@ -2,12 +2,13 @@
 package authserver
 
 import (
+	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/handlers"
 	"context"
 	"log"
 	"net/http"
 	"shared/config"
-	"shared/toolkit"
+	"shared/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,7 +37,7 @@ func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler han
 		c.Next()
 	})
 
-	router.Use(toolkit.CORSMiddleware()) // используем для всех маршруторв работу с CORS
+	router.Use(middleware.CORSMiddleware()) // используем для всех маршруторв работу с CORS
 
 	return &AuthServer{
 		router:  router,
@@ -48,6 +49,7 @@ func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler han
 // Метод для маршрутизации сервера
 func (a *AuthServer) SetUpRoutes() {
 	a.router.GET("/hello", a.Handler.EchoAuthServer) // тестовый ендпоинт
+	a.router.POST("/register", middleware.ValidateAuthMiddleware(&dto.RegisterRequest{}), a.Handler.RegisterHandler)
 }
 
 // Метод для запуска сервера

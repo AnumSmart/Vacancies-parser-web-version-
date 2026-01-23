@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"search_service/internal/search_server/handlers"
 	"shared/config"
-	"shared/toolkit"
+	"shared/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +35,7 @@ func NewSearchServer(ctx context.Context, config *config.ServerConfig, handler *
 		c.Next()
 	})
 
-	router.Use(toolkit.CORSMiddleware()) // используем для всех маршруторв работу с CORS
+	router.Use(middleware.CORSMiddleware()) // используем для всех маршруторв работу с CORS
 
 	return &VacancySearchServer{
 		router:  router,
