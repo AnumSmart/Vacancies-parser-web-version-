@@ -1,3 +1,4 @@
+.env
 jwtConfig.yml
 postgresConfig.yml        
-.env                
+               
