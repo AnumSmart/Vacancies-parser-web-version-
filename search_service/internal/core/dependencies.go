@@ -10,6 +10,7 @@ import (
 	"search_service/internal/parsers_status_manager"
 	"search_service/internal/search_server/handlers"
 	"search_service/internal/search_server/service"
+
 	"shared/inmemory_cache"
 )
 

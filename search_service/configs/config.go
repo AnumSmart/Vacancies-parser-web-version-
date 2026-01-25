@@ -27,7 +27,7 @@ type APIConfig struct {
 
 // загружаем конфиг-данные из .env
 func LoadConfig() (*SearchServiceConfig, error) {
-	err := godotenv.Load("c:\\Son_Alex\\GO_projects\\go_v_1_20_web\\vacancy_parser\\search_service\\.env")
+	err := godotenv.Load("c:\\Son_Alex\\GO_projects\\go_v_1_23_web\\vacancy_parser\\search_service\\.env")
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}

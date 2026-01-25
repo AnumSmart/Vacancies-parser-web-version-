@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"shared/jwt_service"
 	postgresdb "shared/postgres_db"
 )
 
@@ -31,15 +32,30 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 
 	// создаём экземпляр пула соединений для postgresQL
 	pgRepo, err := postgresdb.NewPgRepo(ctx, conf.PostgresDBConf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create PostgreSQL repository: %w", err)
+	}
 
 	// создаём слой репозитория
 	repo := repository.NewAuthRepository(pgRepo)
 
+	// создаём сервис jwt
+	jwtManager := jwt_service.NewJWTService(conf.JWTConfig)
+	if jwtManager == nil {
+		return nil, fmt.Errorf("failed to create jwt service")
+	}
+
 	// создаём сервис аторизации
-	authService := service.NewAuthService(repo)
+	authService := service.NewAuthService(repo, jwtManager)
+	if authService == nil {
+		return nil, fmt.Errorf("failed to create auth service")
+	}
 
 	// создаём хэндлер поиска
 	authHandler := handlers.NewAuthHandler(authService)
+	if authHandler == nil {
+		return nil, fmt.Errorf("failed to create auth handler")
+	}
 
 	return &AuthServiceDepenencies{
 		AuthConfig:  conf,

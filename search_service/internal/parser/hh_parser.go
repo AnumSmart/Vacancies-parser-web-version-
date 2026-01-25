@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+
 	"search_service/configs"
 	"search_service/internal/domain/models"
 	"search_service/internal/parser/model"
+
 	"search_service/internal/search_interfaces"
 	"strconv"
 )

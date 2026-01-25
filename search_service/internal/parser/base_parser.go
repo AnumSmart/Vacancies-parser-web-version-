@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"search_service/internal/domain/models"
 	"search_service/pkg"
+
 	"shared/circuitbreaker"
 	"shared/config"
 	"shared/interfaces"

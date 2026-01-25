@@ -4,11 +4,13 @@ package service
 import (
 	"auth_service/internal/auth_server/repository"
 	"context"
+	"fmt"
+	"shared/jwt_service"
 )
 
 // описание интерфейса сервисного слоя
 type AuthServiceInterface interface {
-	Register(ctx context.Context, email, password string) error
+	Register(ctx context.Context, email, password string) (string, error)
 	Login(ctx context.Context, email, password string) error
 	StopServices(ctx context.Context)
 }
@@ -16,19 +18,22 @@ type AuthServiceInterface interface {
 // описание структуры сервисного слоя
 type AuthService struct {
 	repo repository.AuthRepositoryInterface
+	jwt  jwt_service.JWTManager
 }
 
 // Конструктор возвращает интерфейс
-func NewAuthService(repo repository.AuthRepositoryInterface) *AuthService {
+func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManager) *AuthService {
 	return &AuthService{
 		repo: repo,
+		jwt:  jwt,
 	}
 }
 
 // Метод регистарции пользователя
-func (s *AuthService) Register(ctx context.Context, email, password string) error {
-	// реализация
-	return nil
+func (s *AuthService) Register(ctx context.Context, email, password string) (string, error) {
+	// тестовая заглушка
+	result := fmt.Sprintf("Server has validated the request! Email:%s, pass:%s\n", email, password)
+	return result, nil
 }
 
 // Метод логина пользователя

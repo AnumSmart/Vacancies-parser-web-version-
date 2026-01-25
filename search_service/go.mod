@@ -1,4 +1,4 @@
-module searc_service
+module search_service
 
 go 1.23.1
 
