@@ -10,12 +10,13 @@ import (
 	"search_service/internal/parsers_status_manager"
 	"search_service/internal/search_server/handlers"
 	"search_service/internal/search_server/service"
+
 	"shared/inmemory_cache"
 )
 
 // SearchServiceDependencies содержит все общие зависимости
 type SearchServiceDependencies struct {
-	Config              *configs.Config
+	Config              *configs.SearchServiceConfig
 	SearchCache         *inmemory_cache.InmemoryShardedCache
 	VacancyIndex        *inmemory_cache.InmemoryShardedCache
 	VacancyDetails      *inmemory_cache.InmemoryShardedCache
@@ -25,7 +26,7 @@ type SearchServiceDependencies struct {
 	SearchHandler       *handlers.SearchHandler
 }
 
-// InitDependencies инициализирует общие зависимости
+// InitDependencies инициализирует общие зависимости для search_service
 func InitDependencies() (*SearchServiceDependencies, error) {
 	// Получаем количество CPU
 	currentMaxProcs := runtime.GOMAXPROCS(-1)

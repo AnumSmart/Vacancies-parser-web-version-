@@ -4,9 +4,9 @@ package parser
 
 import (
 	"fmt"
-
 	"search_service/configs"
 	"search_service/internal/search_interfaces"
+
 	"sync"
 )
 

@@ -1,6 +1,8 @@
-package toolkit
+package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
 // middleware для CORS политики
 func CORSMiddleware() gin.HandlerFunc {

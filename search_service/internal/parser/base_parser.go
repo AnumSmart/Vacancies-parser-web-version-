@@ -2,12 +2,14 @@ package parser
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"search_service/internal/domain/models"
 	"search_service/pkg"
+
 	"shared/circuitbreaker"
 	"shared/config"
 	"shared/interfaces"
@@ -68,16 +70,31 @@ func NewBaseParser(config BaseConfig) (*BaseParser, error) {
 
 // функция, которая создаёт новый клиент с параметрами
 func createHTTPClient(config BaseConfig) *http.Client {
-	return &http.Client{
-		Timeout: config.Timeout,
-		Transport: &http.Transport{
-			MaxConnsPerHost:       config.MaxConcurrent,
-			MaxIdleConnsPerHost:   config.MaxIdleConns,
-			IdleConnTimeout:       config.IdleConnTimeout,
-			TLSHandshakeTimeout:   config.TLSHandshakeTimeout,
-			ResponseHeaderTimeout: config.ResponseHeaderTimeout,
-			ExpectContinueTimeout: config.ExpectContinueTimeout,
+	transport := &http.Transport{
+		MaxConnsPerHost:       config.MaxConcurrent,
+		MaxIdleConnsPerHost:   config.MaxIdleConns,
+		IdleConnTimeout:       config.IdleConnTimeout,
+		TLSHandshakeTimeout:   config.TLSHandshakeTimeout,
+		ResponseHeaderTimeout: config.ResponseHeaderTimeout,
+		ExpectContinueTimeout: config.ExpectContinueTimeout,
+
+		// Дополнительные настройки TLS для безопасности
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12, // Минимум TLS 1.2
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+			// Не проверять сертификаты для разработки (осторожно!)
+			// InsecureSkipVerify: true, // ТОЛЬКО для тестов!
 		},
+	}
+
+	return &http.Client{
+		Timeout:   config.Timeout,
+		Transport: transport,
 	}
 }
 

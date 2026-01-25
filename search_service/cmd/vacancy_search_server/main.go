@@ -24,10 +24,8 @@ func main() {
 		log.Fatalf("Failed to initialize dependencies: %v", err)
 	}
 
-	// создаём сервисы
-
 	// Создаем HTTP-сервер
-	server, err := search_server.NewSearchServer(ctx, deps.Config.Server, deps.SearchHandler)
+	server, err := search_server.NewSearchServer(ctx, deps.Config.ServerConf, deps.SearchHandler)
 	if err != nil {
 		panic("Failed to create server!")
 	}
@@ -38,7 +36,7 @@ func main() {
 
 	// Запуск сервера
 	go func() {
-		fmt.Printf("🚀 HTTP сервер запускается на %s\n", deps.Config.Server.Addr())
+		fmt.Printf("🚀 HTTP сервер поиска вакансий запускается на %s\n", deps.Config.ServerConf.Addr())
 		if err := server.Run(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
@@ -46,7 +44,7 @@ func main() {
 
 	// Ожидание сигнала
 	<-sigChan
-	fmt.Println("\n🛑 Остановка сервера...")
+	fmt.Println("\n🛑 Остановка сервера поиска вакансий...")
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 30*time.Second)
@@ -57,7 +55,7 @@ func main() {
 		log.Printf("Error during server shutdown: %v", err)
 	}
 
-	fmt.Println("👋 Сервер остановлен")
+	fmt.Println("👋 Сервер поиска вакансий остановлен")
 
 	// Остановка сервисов
 	server.Handler.ShutDown(ctx)

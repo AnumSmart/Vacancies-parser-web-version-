@@ -3,6 +3,7 @@ package parsers_manager
 import (
 	"fmt"
 	"search_service/internal/domain/models"
+
 	"strings"
 )
 

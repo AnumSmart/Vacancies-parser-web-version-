@@ -11,13 +11,13 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Config struct {
+type SearchServiceConfig struct {
 	API         APIConfig
 	Cache       *CachesConfig
 	Parsers     *ParsersConfig
 	Manager     *ParserManagerConfig
 	HealthChech *HealthCheckConfig
-	Server      *config.ServerConfig
+	ServerConf  *config.ServerConfig
 }
 
 type APIConfig struct {
@@ -26,7 +26,7 @@ type APIConfig struct {
 }
 
 // загружаем конфиг-данные из .env
-func LoadConfig() (*Config, error) {
+func LoadConfig() (*SearchServiceConfig, error) {
 	err := godotenv.Load("c:\\Son_Alex\\GO_projects\\go_v_1_23_web\\vacancy_parser\\search_service\\.env")
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
@@ -57,12 +57,12 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
 
-	serverConfig, err := config.LoadYAMLConfig[config.ServerConfig](os.Getenv("SERVER_CONFIG_ADDRESS_STRING"), config.DefaultServerConfig)
+	serverConfig, err := config.LoadYAMLConfig[config.ServerConfig](os.Getenv("SERVER_CONFIG_ADDRESS_STRING"), config.UseDefaultServerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
 
-	return &Config{
+	return &SearchServiceConfig{
 		API: APIConfig{
 			ConcSearchTimeout: time.Duration(concSearchTimeOut) * time.Second,
 		},
@@ -70,6 +70,6 @@ func LoadConfig() (*Config, error) {
 		Parsers:     parsersConfig,
 		Manager:     parsersManagerConfig,
 		HealthChech: healthCheckConfig,
-		Server:      serverConfig,
+		ServerConf:  serverConfig,
 	}, nil
 }

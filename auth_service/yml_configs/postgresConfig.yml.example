@@ -1,0 +1,7 @@
+dsn: 'host=localhost user=admin password=my_pass dbname=users port=5432 sslmode=disable'      -------#change to your database DSN -------
+max_conns: 10
+min_conns: 2
+health_check_period: 1m
+max_conn_lifetime: 1h
+max_conn_idle_time: 30m
+connect_timeout: 5s
