@@ -1,11 +1,10 @@
 package config
 
 import (
-	"log"
 	"time"
 )
 
-// структура для конфига сервера (HTTPS)
+// структура для конфига сервера
 type ServerConfig struct {
 	Host           string        `yaml:"host"`
 	Port           string        `yaml:"port"`
@@ -24,7 +23,6 @@ type ServerConfig struct {
 
 // функция для создания конфига сервера по - дефолту
 func UseDefaultServerConfig() *ServerConfig {
-	log.Println("Была вызвана функция загрузки дэфолтного конфига для сервера!")
 	return &ServerConfig{
 		Host:           "localhost",
 		Port:           "8080",

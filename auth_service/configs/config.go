@@ -18,7 +18,7 @@ type AuthServiceConfig struct {
 
 // загружаем конфиг-данные из .env
 func LoadConfig() (*AuthServiceConfig, error) {
-	err := godotenv.Load("c:\\Son_Alex\\GO_projects\\go_v_1_20_web\\vacancy_parser\\auth_service\\.env")
+	err := godotenv.Load("c:\\Users\\aliaksei.makarevich\\go\\go_v_1_20_web\\Job_Parser\\auth_service\\.env")
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
@@ -30,7 +30,7 @@ func LoadConfig() (*AuthServiceConfig, error) {
 	}
 
 	// загружаем данные из .yml файла для postgresDBConfig
-	postgresDBConfig, err := config.LoadYAMLConfig[config.PostgresDBConfig](os.Getenv("POSTGRES_CONFIG_ADDRESS_STRING"), config.UseDefautPostgresDBConfig)
+	postgresDBConfig, err := config.NewPostgresDBConfigFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
