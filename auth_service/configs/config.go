@@ -30,7 +30,7 @@ func LoadConfig() (*AuthServiceConfig, error) {
 	}
 
 	// загружаем данные из .yml файла для postgresDBConfig
-	postgresDBConfig, err := config.LoadYAMLConfig[config.PostgresDBConfig](os.Getenv("POSTGRES_CONFIG_ADDRESS_STRING"), config.UseDefautPostgresDBConfig)
+	postgresDBConfig, err := config.NewPostgresDBConfigFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}

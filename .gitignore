@@ -2,5 +2,5 @@
 *.pem
 *.key
 certs/
+ssl/
 jwtConfig.yml
-postgresConfig.yml

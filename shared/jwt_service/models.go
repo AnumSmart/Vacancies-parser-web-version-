@@ -13,10 +13,10 @@ type JWTService struct {
 
 // Конфигурация JWTConfig
 type JWTConfig struct {
-	SecretAccKey    string        //секретный ключ для access токена
-	SecretRefKey    string        //секретный ключ для refresh токена
-	AccessTokenExp  time.Duration // время жизни для access токена (обычно около 15 мин)
-	RefreshTokenExp time.Duration // время жизни для refresh токена (обычно дни ...)
+	SecretAccKey    string        `yaml:"access_secret"`        //секретный ключ для access токена
+	SecretRefKey    string        `yaml:"refresh_secret"`       //секретный ключ для refresh токена
+	AccessTokenExp  time.Duration `yaml:"access_token_expiry"`  // время жизни для access токена (обычно около 15 мин)
+	RefreshTokenExp time.Duration `yaml:"refresh_token_expiry"` // время жизни для refresh токена (обычно дни ...)
 }
 
 // CustomClaims для JWT
