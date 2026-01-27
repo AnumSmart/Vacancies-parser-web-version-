@@ -5,7 +5,7 @@ import "time"
 
 // структура пользователя
 type User struct {
-	ID           string // ID пользователя
+	ID           int64  // ID пользователя
 	Email        string // адресс электронной почты
 	PasswordHash string // хэш пароля
 	CreatedAt    time.Time
