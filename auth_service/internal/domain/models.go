@@ -1,7 +1,14 @@
 // описание общих стркутур для всего auth_service
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrUserAlreadyExists = errors.New("User already exists in base")
+)
 
 // структура пользователя
 type User struct {

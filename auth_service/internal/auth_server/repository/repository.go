@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	postgresdb "shared/postgres_db"
+	"time"
 
 	"github.com/jackc/pgx/v4"
 )
@@ -62,6 +63,32 @@ func (a *AuthRepository) CheckIfInBaseByEmail(ctx context.Context, email string)
 
 // метод репозитория добавления нового пользователя в базу
 func (a *AuthRepository) AddUser(ctx context.Context, email, hashedPass string) (int64, error) {
-	//заглушка
-	return 0, nil
+	if err := ctx.Err(); err != nil {
+		return -1, err
+	}
+
+	var userID int64
+	query := `
+        INSERT INTO users (email, password_hash, created_at) 
+        VALUES ($1, $2, $3) 
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id
+    `
+
+	err := a.pgRepo.GetPool().QueryRow(
+		ctx,
+		query,
+		email,
+		hashedPass,
+		time.Now(),
+	).Scan(&userID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return -1, domain.ErrUserAlreadyExists
+	}
+	if err != nil {
+		return -1, fmt.Errorf("failed to insert user: %w", err)
+	}
+
+	return userID, nil
 }

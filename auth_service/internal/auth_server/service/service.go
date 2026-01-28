@@ -2,6 +2,7 @@
 package service
 
 import (
+	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/repository"
 	"context"
 	"errors"
@@ -14,7 +15,7 @@ import (
 // описание интерфейса сервисного слоя
 type AuthServiceInterface interface {
 	Register(ctx context.Context, email, password string) (string, error)
-	Login(ctx context.Context, email, password string) error
+	Login(ctx context.Context, email, password string) (*dto.LoginResponse, error)
 	StopServices(ctx context.Context)
 }
 
@@ -48,7 +49,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 
 	// если такой пользователь уже зарегестрирован, возвращем его ID и ошибку-сообщение
 	if isInBase {
-		return strconv.Itoa(int(userID)), errors.New("user with such Email is in base")
+		return "", errors.New("user with such Email is in base")
 	}
 
 	// Хеширование пароля
@@ -66,9 +67,9 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 }
 
 // Метод логина пользователя
-func (s *AuthService) Login(ctx context.Context, email, password string) error {
+func (s *AuthService) Login(ctx context.Context, email, password string) (*dto.LoginResponse, error) {
 	// реализация
-	return nil
+	return nil, nil
 }
 
 // метод остановки всех сервисов
