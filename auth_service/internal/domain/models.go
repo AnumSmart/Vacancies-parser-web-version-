@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	ErrUserAlreadyExists = errors.New("User already exists in base")
+	ErrUserAlreadyExists    = errors.New("User already exists in base")
+	ErrUserWrongCredentials = errors.New("Wrong user papameters for search in base")
 )
 
 // структура пользователя

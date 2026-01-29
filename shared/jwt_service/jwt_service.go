@@ -4,7 +4,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type JWTManager interface {
+type JWTManagerInterface interface {
 	GenerateTokens(email string) (string, string, error)
 }
 

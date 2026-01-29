@@ -2,10 +2,12 @@
 package service
 
 import (
-	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/repository"
+	"auth_service/internal/domain"
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"shared/jwt_service"
 	"strconv"
 
@@ -15,21 +17,23 @@ import (
 // описание интерфейса сервисного слоя
 type AuthServiceInterface interface {
 	Register(ctx context.Context, email, password string) (string, error)
-	Login(ctx context.Context, email, password string) (*dto.LoginResponse, error)
+	Login(ctx context.Context, email, password string) error
 	StopServices(ctx context.Context)
+	AddRefreshTokenToDb(ctx context.Context, email, refreshToken string) error
+	GetTokens(ctx context.Context, email string) (string, string, error)
 }
 
 // описание структуры сервисного слоя
 type AuthService struct {
-	repo repository.AuthRepositoryInterface
-	jwt  jwt_service.JWTManager
+	repo       repository.AuthRepositoryInterface
+	jwtManager jwt_service.JWTManagerInterface
 }
 
 // Конструктор возвращает интерфейс
-func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManager) *AuthService {
+func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManagerInterface) *AuthService {
 	return &AuthService{
-		repo: repo,
-		jwt:  jwt,
+		repo:       repo,
+		jwtManager: jwt,
 	}
 }
 
@@ -66,10 +70,60 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 	return strconv.Itoa(int(userID)), nil
 }
 
-// Метод логина пользователя
-func (s *AuthService) Login(ctx context.Context, email, password string) (*dto.LoginResponse, error) {
-	// реализация
-	return nil, nil
+// Метод проверки соответствия пользователя с информацией в базе
+func (s *AuthService) Login(ctx context.Context, email, password string) error {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Проверяем существует ли пользователь с данным email уже в базе.
+	existedUser, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	// если указатель на пользователя == nil, значит пользователь не был найден
+	if existedUser == nil {
+		log.Printf("error during search in the DB, user = %v", existedUser)
+		return domain.ErrUserWrongCredentials
+	}
+
+	//сравниваем хэши паролей, тот, что в базе и тот, что логинится
+	err = bcrypt.CompareHashAndPassword([]byte(existedUser.PasswordHash), []byte(password))
+	if err != nil {
+		return domain.ErrUserWrongCredentials
+	}
+
+	return nil
+}
+
+// метод для генерации jwt токенов
+func (a *AuthService) GetTokens(ctx context.Context, email string) (string, string, error) {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return "", "", err
+	}
+	// пробуем генерировать JWT токены
+	accessToken, refreshToken, err := a.jwtManager.GenerateTokens(email)
+	if err != nil {
+		return "", "", fmt.Errorf("Error during JWT tokens generation: %v", err)
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+// метод работы с repo слоем, добавление refresh токена в DB
+func (a *AuthService) AddRefreshTokenToDb(ctx context.Context, email, refreshToken string) error {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	err := a.repo.AddRefreshToken(ctx, email, refreshToken)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // метод остановки всех сервисов
