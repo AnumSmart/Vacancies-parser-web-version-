@@ -4,6 +4,7 @@ package handlers
 import (
 	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/service"
+	"auth_service/internal/domain"
 	"context"
 	"errors"
 	"net/http"
@@ -68,8 +69,69 @@ func (a *AuthHandler) RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	// в ответе пользователю отдаём сообщение и ID пользователя
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered successfully",
 		"user_id": userID,
 	})
+}
+
+// метод слоя Handlers для обработки входящего POST запроса, валидация запроса, проверка пользователя в базе, в ответе: пара JWT токенов
+func (a *AuthHandler) LoginHandler(c *gin.Context) {
+	//проверяем, есть ли в контексте валидированные данные
+	validatedData, exists := c.Get("validatedData")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Validation data not found"})
+		return
+	}
+
+	// Приведение типа с проверкой
+	user, ok := validatedData.(*dto.LoginRequest)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Invalid request type",
+		})
+		return
+	}
+
+	//пробуем залогировать пользователя
+	err := a.service.Login(c, user.Email, user.Password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Получаем access и refresh токены
+	accessToken, refreshToken, err := a.service.GetTokens(c, user.Email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Ошибка при получении токенов токена",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// пробуем добавить refresh токен в базу
+	err = a.service.AddRefreshTokenToDb(c, user.Email, refreshToken)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Ошибка записи refreshToken в БД",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// структура jwt токенов
+	tokenPair := domain.TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	// формируем ответ для пользователя
+	responce := dto.LoginResponse{
+		Tokens:    tokenPair,
+		TokenType: "Bearer",
+	}
+
+	c.JSON(http.StatusOK, responce)
 }

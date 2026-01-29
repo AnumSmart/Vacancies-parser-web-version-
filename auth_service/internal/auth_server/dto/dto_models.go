@@ -11,10 +11,10 @@ type LoginRequest struct {
 
 // структура ответа на запрос login  от сервиса авторизации
 type LoginResponse struct {
-	Tokens    *domain.TokenPair `json:"tokens"`     // access и refresh
-	TokenType string            `json:"token_type"` // Bearer
-	UserID    string            `json:"user_id,omitempty"`
-	ExpiresIn int64             `json:"expires_in"`
+	Tokens    domain.TokenPair `json:"tokens"`     // access и refresh
+	TokenType string           `json:"token_type"` // Bearer
+	UserID    string           `json:"user_id,omitempty"`
+	ExpiresIn int64            `json:"expires_in"`
 }
 
 // структура запроса для регистрации пользователя
