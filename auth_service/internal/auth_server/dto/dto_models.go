@@ -25,10 +25,12 @@ type RegisterRequest struct {
 
 // структура ответа при успешной регистрации
 type RegisterResponse struct {
-	Message     string `json:"message"`
-	UserID      string `json:"user_id"`
-	Email       string `json:"email"`
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int64  `json:"expires_in"`
+	Message string `json:"message"`
+	UserID  string `json:"user_id"`
+	Email   string `json:"email"`
+}
+
+// Структура для входящего запроса
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
