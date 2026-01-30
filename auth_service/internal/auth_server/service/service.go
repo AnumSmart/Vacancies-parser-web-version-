@@ -21,6 +21,7 @@ type AuthServiceInterface interface {
 	StopServices(ctx context.Context)
 	AddRefreshTokenToDb(ctx context.Context, email, refreshToken string) error
 	GetTokens(ctx context.Context, email string) (string, string, error)
+	RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error)
 }
 
 // описание структуры сервисного слоя
@@ -124,6 +125,89 @@ func (a *AuthService) AddRefreshTokenToDb(ctx context.Context, email, refreshTok
 		return err
 	}
 	return nil
+}
+
+// метод для обновления токенов
+func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
+	// 1. валидируем refresh токен
+	parsedRefToken, err := jwt_service.ParseTokenWithClaims(ctx, refreshToken, a.jwtManager.GetJTWConfig().SecretRefKey)
+	if err != nil {
+		log.Println("Wrong refresh token")
+		return nil, err
+	}
+
+	// 2. Проверка срока действия (уже сделано в ParseRefreshToken)
+	if !parsedRefToken.Valid {
+		return nil, fmt.Errorf("token expired")
+	}
+
+	// 3. Извлечение claims
+	claims, ok := parsedRefToken.Claims.(*jwt_service.CustomClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// 4. Проверка типа токена
+	if claims.TokenType != "refresh" {
+		return nil, fmt.Errorf("not a refresh token")
+	}
+	/*
+					// 5. проверка в Reddis (черный список)
+					redisKey := fmt.Sprintf("refresh_token:%s", claims.ID) // claims.ID = jti из токена
+					exists, err := a.blacklistCache.ExistsInBlackList(ctx, redisKey)
+					if err != nil {
+						return nil, fmt.Errorf("failed to check token in Redis")
+					}
+					if exists {
+						return nil, fmt.Errorf("token revoked") // Токен в черном списке!
+					}
+
+
+				// 6. Полная проверка в БД
+				tokenFromDB, err := a.repo.FindByID(ctx, *claims)
+				if err != nil {
+					return nil, fmt.Errorf("token not found: %w", err)
+				}
+
+			if tokenFromDB.Revoked {
+		        // Добавляем в Redis для будущих быстрых проверок
+		        a.blacklistCache.AddToBlacklist(claims.JTI)
+		        return nil, fmt.Errorf("token revoked")
+		    }
+
+		    if time.Now().After(tokenFromDB.ExpiresAt) {
+		        return nil, fmt.Errorf("token expired")
+		    }
+
+				// 7. Проверка hash токена (защита от replay attacks)
+		    tokenHash := hashToken(refreshToken)
+		    if !hmac.Equal([]byte(tokenHash), []byte(tokenFromDB.TokenHash)) {
+		        // Возможно, токен был скомпрометирован
+		        // Отзываем все токены пользователя
+		        s.tokenRepo.RevokeAllUserTokens(ctx, claims.UserID)
+		        return nil, fmt.Errorf("invalid token")
+		    }
+	*/
+	// 8. Создание новой пары токенов
+	user, err := a.repo.FindByEmail(ctx, claims.Email)
+	if err != nil {
+		return nil, fmt.Errorf("user not found: %w", err)
+	}
+
+	newAccessToken, newRefeshToken, err := a.jwtManager.GenerateTokens(user.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tokens: %w", err)
+	}
+
+	// 10. Сохранить новый refresh-токен в БД
+	// 11. Обновить старый токен (отметить как замененный)
+	// 12. Вернуть новую пару токенов
+	tokens := domain.TokenPair{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefeshToken,
+	}
+
+	return &tokens, nil
 }
 
 // метод остановки всех сервисов

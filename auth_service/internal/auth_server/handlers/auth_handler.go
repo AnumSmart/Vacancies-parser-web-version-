@@ -17,6 +17,8 @@ type AuthHandlerInterface interface {
 	EchoAuthServer(c *gin.Context)
 	ShutDown(ctx context.Context)
 	RegisterHandler(c *gin.Context)
+	LoginHandler(c *gin.Context)
+	ProcessRefreshTokenHandler(c *gin.Context)
 }
 
 // структура хэндлера сервера авторизации
@@ -56,7 +58,7 @@ func (a *AuthHandler) RegisterHandler(c *gin.Context) {
 	}
 
 	// вызываем метод сервиса для регистрации нового пользователя
-	userID, err := a.service.Register(c, user.Email, user.Password)
+	userID, err := a.service.Register(c.Request.Context(), user.Email, user.Password)
 	if err != nil {
 		// Обработка разных типов ошибок
 		if errors.Is(err, ErrUserExists) {
@@ -69,11 +71,15 @@ func (a *AuthHandler) RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	// формируем объект для ответа
+	response := dto.RegisterResponse{
+		Message: "User registered successfully",
+		UserID:  userID,
+		Email:   user.Email,
+	}
+
 	// в ответе пользователю отдаём сообщение и ID пользователя
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully",
-		"user_id": userID,
-	})
+	c.JSON(http.StatusCreated, response)
 }
 
 // метод слоя Handlers для обработки входящего POST запроса, валидация запроса, проверка пользователя в базе, в ответе: пара JWT токенов
@@ -95,14 +101,14 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	//пробуем залогировать пользователя
-	err := a.service.Login(c, user.Email, user.Password)
+	err := a.service.Login(c.Request.Context(), user.Email, user.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// Получаем access и refresh токены
-	accessToken, refreshToken, err := a.service.GetTokens(c, user.Email)
+	accessToken, refreshToken, err := a.service.GetTokens(c.Request.Context(), user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка при получении токенов токена",
@@ -112,7 +118,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// пробуем добавить refresh токен в базу
-	err = a.service.AddRefreshTokenToDb(c, user.Email, refreshToken)
+	err = a.service.AddRefreshTokenToDb(c.Request.Context(), user.Email, refreshToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка записи refreshToken в БД",
@@ -134,4 +140,29 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, responce)
+}
+
+// Хэндлер генерации нового access токена, при предоставлении валидного refresh токена
+func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
+	//Проверка того, что JSON из запроса мапится в нужную структуру refresh токена
+	var req dto.RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+	// 3. Вызов сервиса
+	tokens, err := a.service.RefreshTokens(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		// Обработка ошибок: токен невалиден, отозван и т.д.
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, tokens)
 }
