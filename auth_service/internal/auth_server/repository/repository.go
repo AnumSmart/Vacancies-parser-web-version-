@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	postgresdb "shared/postgres_db"
+	redis "shared/redis"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -23,13 +24,15 @@ type AuthRepositoryInterface interface {
 
 // описание структуры слоя репозитория
 type AuthRepository struct {
-	pgRepo postgresdb.PgRepoInterface
+	pgRepo    postgresdb.PgRepoInterface
+	redisRepo redis.RedisRepositoryInterface
 }
 
 // конструктор для слоя репозиторий
-func NewAuthRepository(pgRepo postgresdb.PgRepoInterface) *AuthRepository {
+func NewAuthRepository(pgRepo postgresdb.PgRepoInterface, redisRepo redis.RedisRepositoryInterface) *AuthRepository {
 	return &AuthRepository{
-		pgRepo: pgRepo,
+		pgRepo:    pgRepo,
+		redisRepo: redisRepo,
 	}
 }
 
