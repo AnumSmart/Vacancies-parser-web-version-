@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"shared/jwt_service"
 	postgresdb "shared/postgres_db"
+	redis "shared/redis"
 )
 
 // Dependencies содержит все общие зависимости
@@ -36,8 +37,11 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 		return nil, fmt.Errorf("failed to create PostgreSQL repository: %w", err)
 	}
 
+	// создаём экземпляр redis
+	redisRepo, err := redis.NewRedisRepository(conf.RedisConf)
+
 	// создаём слой репозитория
-	repo := repository.NewAuthRepository(pgRepo)
+	repo := repository.NewAuthRepository(pgRepo, redisRepo)
 
 	// создаём сервис jwt
 	jwtManager := jwt_service.NewJWTService(conf.JWTConfig)

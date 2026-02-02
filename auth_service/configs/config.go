@@ -13,6 +13,7 @@ import (
 type AuthServiceConfig struct {
 	ServerConf     *config.ServerConfig
 	PostgresDBConf *config.PostgresDBConfig
+	RedisConf      *config.RedisConfig
 	JWTConfig      *jwt_service.JWTConfig // секретные ключи для подписи и время жизни
 }
 
@@ -29,8 +30,14 @@ func LoadConfig() (*AuthServiceConfig, error) {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
 
-	// загружаем данные из .yml файла для postgresDBConfig
+	// загружаем данные из .env файла для postgresDBConfig
 	postgresDBConfig, err := config.NewPostgresDBConfigFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
+	}
+
+	// загружаем данные из .env файла для redisConfig
+	redisConfig, err := config.NewRedisConfigFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
@@ -44,6 +51,7 @@ func LoadConfig() (*AuthServiceConfig, error) {
 	return &AuthServiceConfig{
 		ServerConf:     serverConfig,
 		PostgresDBConf: postgresDBConfig,
+		RedisConf:      redisConfig,
 		JWTConfig:      jwtConfig,
 	}, nil
 }
