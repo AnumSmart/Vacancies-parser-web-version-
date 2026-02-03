@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"shared/config"
@@ -11,22 +10,28 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// интерфейс базовых возможностей redis (для общего пользования из других сервисов)
 type RedisRepositoryInterface interface {
-	// нужно реализовать!
-	/*
-		Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error // добавить значение в redis с поределённым ключом
-		Get(ctx context.Context, key string) (string, error)                                    // получить значение по ключу
-		Exists(ctx context.Context, key string) (bool, error)                                   // проверить существование значения в reddis по ключу
-		Delete(ctx context.Context, key string) error                                           // удалить значение по ключу
-		Close() error
-	*/
+	// Основные CRUD операции
+	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
+	GetBytes(ctx context.Context, key string) ([]byte, error)
+	Delete(ctx context.Context, key string) error
+	Exists(ctx context.Context, key string) (bool, error)
+
+	// TTL операции
+	Expire(ctx context.Context, key string, expiration time.Duration) error
+	TTL(ctx context.Context, key string) (time.Duration, error)
+
+	// Управление соединением
+	Close() error
 }
 
 type RedisRepository struct {
 	client *redis.Client
 }
 
-func NewRedisRepository(cfg *config.RedisConfig) (*RedisRepository, error) {
+func NewRedisRepository(cfg *config.RedisConfig) (RedisRepositoryInterface, error) {
 	// проверяем, что конфиг редиса не nil
 	if cfg == nil {
 		return nil, fmt.Errorf("Error in redis config")
@@ -62,43 +67,39 @@ func (r *RedisRepository) Close() error {
 	return nil
 }
 
-// Set добавляет значение в Redis с определенным ключом
-// Поддерживает любые типы данных через JSON сериализацию
+// метод для добавления значения с TTL в redis
 func (r *RedisRepository) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
-	var err error
-	var finalValue string
+	return r.client.Set(ctx, key, value, expiration).Err()
+}
 
-	// Преобразуем value в строку в зависимости от типа
-	switch v := value.(type) {
-	case string:
-		finalValue = v
-	case []byte:
-		finalValue = string(v)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		finalValue = fmt.Sprintf("%d", v)
-	case float32, float64:
-		finalValue = fmt.Sprintf("%f", v)
-	case bool:
-		finalValue = fmt.Sprintf("%t", v)
-	default:
-		// Для сложных структур используем JSON
-		jsonData, err := json.Marshal(v)
-		if err != nil {
-			return fmt.Errorf("failed to marshal value to JSON: %w", err)
-		}
-		finalValue = string(jsonData)
-	}
+// метод получения значения из redis по ключу
+func (r *RedisRepository) Get(ctx context.Context, key string) (string, error) {
+	return r.client.Get(ctx, key).Result()
+}
 
-	// Устанавливаем значение с TTL
-	if expiration > 0 {
-		err = r.client.SetEX(ctx, key, finalValue, expiration).Err()
-	} else {
-		err = r.client.Set(ctx, key, finalValue, 0).Err()
-	}
+// метод получения значения из redis по ключу (результат в виде байтового среза)
+func (r *RedisRepository) GetBytes(ctx context.Context, key string) ([]byte, error) {
+	return r.client.Get(ctx, key).Bytes()
+}
 
-	if err != nil {
-		return fmt.Errorf("failed to set key %s: %w", key, err)
-	}
+// метод удаления элемента по ключу из redis
+func (r *RedisRepository) Delete(ctx context.Context, key string) error {
+	return r.client.Del(ctx, key).Err()
+}
 
-	return nil
+// метод проверки существования элемента в redis по ключу
+func (r *RedisRepository) Exists(ctx context.Context, key string) (bool, error) {
+	result, err := r.client.Exists(ctx, key).Result()
+	return result > 0, err
+}
+
+// метод устанавливает время жизни ключа в Redis.
+func (r *RedisRepository) Expire(ctx context.Context, key string, expiration time.Duration) error {
+	return r.client.Expire(ctx, key, expiration).Err()
+}
+
+// метод возвращает оставшееся время жизни ключа в Redis.
+// Возвращает -1 если время жизни не установлено, -2 если ключ не существует.
+func (r *RedisRepository) TTL(ctx context.Context, key string) (time.Duration, error) {
+	return r.client.TTL(ctx, key).Result()
 }

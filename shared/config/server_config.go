@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"time"
 )
 
@@ -24,7 +23,7 @@ type ServerConfig struct {
 
 // функция для создания конфига сервера по - дефолту
 func UseDefaultServerConfig() *ServerConfig {
-	log.Println("Была вызвана функция загрузки дэфолтного конфига для сервера!")
+	//log.Println("Была вызвана функция загрузки дэфолтного конфига для сервера!")
 	return &ServerConfig{
 		Host:           "localhost",
 		Port:           "8080",
