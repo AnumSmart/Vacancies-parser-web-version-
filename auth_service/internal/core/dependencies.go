@@ -40,8 +40,11 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 	// создаём экземпляр redis
 	redisRepo, err := redis.NewRedisRepository(conf.RedisConf)
 
-	// создаём слой репозитория
-	repo := repository.NewAuthRepository(pgRepo, redisRepo)
+	// создаём экземпляр слоя репозитория для токенов
+	tokenRepo, err := repository.NewTokenRepository(redisRepo, "auth")
+
+	// создаём слой репозитория (на базе репозитория Postgres и репозитория токенов (на базе redis))
+	repo := repository.NewAuthRepository(pgRepo, tokenRepo)
 
 	// создаём сервис jwt
 	jwtManager := jwt_service.NewJWTService(conf.JWTConfig)
