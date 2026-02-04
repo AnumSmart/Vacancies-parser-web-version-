@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -12,6 +13,7 @@ import (
 type JWTManagerInterface interface {
 	GenerateTokens(email string) (string, string, error)
 	GetJTWConfig() *JWTConfig
+	CalculateTokenTTL(claims *CustomClaims) time.Duration
 }
 
 // NewJWTService создаёт рабочий сервис с конфигом
@@ -50,6 +52,34 @@ func (j *JWTService) GenerateTokens(email string) (string, string, error) {
 
 func (j *JWTService) GetJTWConfig() *JWTConfig {
 	return j.config
+}
+
+// метод, который определяет оставшеесф время жизни токена
+func (j *JWTService) CalculateTokenTTL(claims *CustomClaims) time.Duration {
+	if claims == nil || claims.ExpiresAt == nil {
+		// Если ExpiresAt не установлен, используем стандартное значение
+		// Например, 24 часа для refresh токена
+		return 24 * time.Hour
+	}
+
+	expiryTime := claims.ExpiresAt.Time
+	now := time.Now()
+
+	remainingTime := expiryTime.Sub(now)
+
+	// Гарантируем минимальный TTL (специально хардкод, при необходимости можно вынести в JWTConfig)
+	minTTL := 5 * time.Minute
+	maxTTL := 30 * 24 * time.Hour // Максимум 30 дней
+
+	// Минимальное и максимальное время можно сделать настраиваемым
+	if remainingTime < minTTL {
+		return minTTL
+	}
+	if remainingTime > maxTTL {
+		return maxTTL
+	}
+
+	return remainingTime
 }
 
 // вспомогательная фукнция парсинга токена с клэймами
