@@ -17,8 +17,11 @@ import (
 type AuthRepositoryInterface interface {
 	CheckIfInBaseByEmail(ctx context.Context, email string) (int64, bool, error)
 	AddUser(ctx context.Context, email, hashedPass string) (int64, error)
-	FindByEmail(ctx context.Context, email string) (*domain.User, error)
+	FindUserByEmail(ctx context.Context, email string) (*domain.User, error)
 	AddRefreshToken(ctx context.Context, email, refreshToken string) error
+	AddRefreshTokenToBlackList(ctx context.Context, token, userID string, ttl time.Duration) error
+	CheckTokenHashInBalckList(ctx context.Context, tokenHash string) (bool, error)
+	FindTokenHashByEmail(ctx context.Context, email string) (string, error)
 }
 
 // описание структуры слоя репозитория
@@ -35,7 +38,7 @@ func NewAuthRepository(pgRepo postgresdb.PgRepoInterface, tokenRepo TokenReposit
 	}
 }
 
-// метод репоизтория для проверки наличия записи о пользователе по email
+// метод repo слоя для проверки наличия записи о пользователе по email
 func (a *AuthRepository) CheckIfInBaseByEmail(ctx context.Context, email string) (int64, bool, error) {
 	// проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
@@ -65,7 +68,7 @@ func (a *AuthRepository) CheckIfInBaseByEmail(ctx context.Context, email string)
 	return user.ID, true, nil
 }
 
-// метод репозитория добавления нового пользователя в базу
+// метод repo слоя добавления нового пользователя в базу
 func (a *AuthRepository) AddUser(ctx context.Context, email, hashedPass string) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return -1, err
@@ -97,8 +100,8 @@ func (a *AuthRepository) AddUser(ctx context.Context, email, hashedPass string) 
 	return userID, nil
 }
 
-// метод поиска пользователя в базе по email
-func (a *AuthRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+// метод repo слоя поиска пользователя в базе по email
+func (a *AuthRepository) FindUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -118,15 +121,41 @@ func (a *AuthRepository) FindByEmail(ctx context.Context, email string) (*domain
 	)
 
 	if err != nil {
-		// если не нашлось такого юзера в базе, возвдращаем nil и nil ошибку (это услови обработатеся на уровне сервиса)
+		// если не нашлось такого юзера в базе, возвращаем nil и nil ошибку (это услови обработатеся на уровне сервиса)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-		log.Printf("function [FindByEmail], failed to query user by email: %v", err)
+		log.Printf("function [FindUserByEmail], failed to query user by email: %v", err)
 		return nil, err
 	}
 
 	return &user, nil
+}
+
+// метод слоя repo для поиска хэша refresh токена в базе
+func (a *AuthRepository) FindTokenHashByEmail(ctx context.Context, email string) (string, error) {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
+	const query = `
+		SELECT refresh_token
+		FROM users 
+		WHERE email = $1
+		LIMIT 1
+	`
+	var tokenHash string
+	err := a.pgRepo.GetPool().QueryRow(ctx, query, email).Scan(&tokenHash)
+	if err != nil {
+		// если не нашлось такого хэша в базе, возвращаем nil и nil ошибку (это услови обработатеся на уровне сервиса)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		log.Printf("function [FindTokenHashByEmail], failed to query tokenHash by email: %v", err)
+		return "", err
+	}
+	return tokenHash, nil
 }
 
 // добавляем поле refreshToken в базу по email (нужно держать refreshToken в БД)
@@ -147,4 +176,35 @@ func (a *AuthRepository) AddRefreshToken(ctx context.Context, email, refreshToke
 	}
 
 	return nil
+}
+
+// метод repo слоя добавления refresh jwt токена в черный список (на базе redis)
+func (a *AuthRepository) AddRefreshTokenToBlackList(ctx context.Context, token, userID string, ttl time.Duration) error {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	err := a.tokenRepo.AddToBlacklist(ctx, token, userID, ttl)
+	if err != nil {
+		fmt.Printf("Error in JWT repository:%v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+// метод repo слоя проверки присутствия refresh jwt токена в черном списке
+func (a *AuthRepository) CheckTokenHashInBalckList(ctx context.Context, tokenHash string) (bool, error) {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+
+	exists, err := a.tokenRepo.IsBlacklisted(ctx, tokenHash)
+	if err != nil {
+		return false, fmt.Errorf("Failed to check hashed token in black list")
+	}
+
+	return exists, nil
 }

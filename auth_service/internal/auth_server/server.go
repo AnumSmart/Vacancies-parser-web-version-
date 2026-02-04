@@ -50,6 +50,8 @@ func NewAuthServer(ctx context.Context, config *config.ServerConfig, handler han
 func (a *AuthServer) SetUpRoutes() {
 	a.router.GET("/hello", a.Handler.EchoAuthServer) // тестовый ендпоинт
 	a.router.POST("/register", middleware.ValidateAuthMiddleware(&dto.RegisterRequest{}), a.Handler.RegisterHandler)
+	a.router.POST("/login", middleware.ValidateAuthMiddleware(&dto.LoginRequest{}), a.Handler.LoginHandler)
+	a.router.GET("/refresh", a.Handler.ProcessRefreshTokenHandler)
 }
 
 // Метод для запуска сервера

@@ -7,12 +7,14 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"log"
 	"shared/jwt_service"
 	"strconv"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -82,7 +84,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) error {
 	}
 
 	// Проверяем существует ли пользователь с данным email уже в базе.
-	existedUser, err := s.repo.FindByEmail(ctx, email)
+	existedUser, err := s.repo.FindUserByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -134,22 +136,22 @@ func (a *AuthService) AddRefreshTokenToDb(ctx context.Context, email, refreshTok
 	return nil
 }
 
-// метод для обновления токенов
+// метод для обновления токенов (запрос от юзера)
 func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
 	// 1. валидируем refresh токен
-	parsedOldRefToken, err := jwt_service.ParseTokenWithClaims(ctx, refreshToken, a.jwtManager.GetJTWConfig().SecretRefKey)
+	parsedUserRefToken, err := jwt_service.ParseTokenWithClaims(ctx, refreshToken, a.jwtManager.GetJTWConfig().SecretRefKey)
 	if err != nil {
 		log.Println("Wrong refresh token")
 		return nil, err
 	}
 
 	// 2. Проверка срока действия (уже сделано в ParseRefreshToken)
-	if !parsedOldRefToken.Valid {
+	if !parsedUserRefToken.Valid {
 		return nil, fmt.Errorf("token expired")
 	}
 
 	// 3. Извлечение claims
-	claims, ok := parsedOldRefToken.Claims.(*jwt_service.CustomClaims)
+	claims, ok := parsedUserRefToken.Claims.(*jwt_service.CustomClaims)
 	if !ok {
 		return nil, fmt.Errorf("invalid token claims")
 	}
@@ -159,14 +161,31 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 		return nil, fmt.Errorf("not a refresh token")
 	}
 
-	/*
-		// 5. проверка в Reddis (черный список)
+	// 5. Получаем оставшееся время жизни old refresh token
+	ttlUserRefreshToken := a.jwtManager.CalculateTokenTTL(claims)
 
-		// 6. Полная проверка в БД (проверяем хэш переданного от юзера refresh токена)
+	// 6. Получаем хэш oldRefreshToken на базе SHA256 для добавления в redis
+	userRefTokenHash := HashRefreshToken(refreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
-	*/
+	// 5. проверка в Reddis (черный список), находится ли там запись хэша refresh токена
+	exists, err := a.repo.CheckTokenHashInBalckList(ctx, userRefTokenHash)
+	if exists {
+		return nil, fmt.Errorf("current refresh token is in Black list!")
+	}
+
+	// 6. Полная проверка в БД (проверяем хэш переданного от юзера refresh токена)
+	tokenHashFromDB, err := a.repo.FindTokenHashByEmail(ctx, claims.Email)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to find token in base by email from claims")
+	}
+
+	equal := SecureHashCompare(tokenHashFromDB, userRefTokenHash)
+	if !equal {
+		return nil, fmt.Errorf("Token Hash from DB not equal privided token Hash from user!")
+	}
+
 	// 7. Создание новой пары токенов
-	user, err := a.repo.FindByEmail(ctx, claims.Email)
+	user, err := a.repo.FindUserByEmail(ctx, claims.Email)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -176,11 +195,22 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// 8. добавить старый refresh токен в черный список redis
+	// 8. добавить старый refresh токен в черный список redis (с оставшимся времененем жизни)
+	err = a.repo.AddRefreshTokenToBlackList(ctx, userRefTokenHash, claims.UserID, ttlUserRefreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add refresh token to black list: %w", err)
+	}
 
-	// 9. Сохранить новый refresh-токен в БД (создаем новый хэш, обновляем в базе)
+	// 9. создаём хэш нового refresh токена
+	newRefeshTokenHash := HashRefreshToken(newRefeshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
-	// 10. Вернуть новую пару токенов
+	// 10. Сохранить новый refresh-токен в БД (создаем новый хэш, обновляем в базе)
+	err = a.repo.AddRefreshToken(ctx, claims.Email, newRefeshTokenHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to Update refreshHash in DB: %w", err)
+	}
+
+	// 11. Вернуть новую пару токенов
 	tokens := domain.TokenPair{
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefeshToken,
@@ -202,4 +232,22 @@ func HashRefreshToken(token string, pepper []byte) string {
 	mac := hmac.New(sha256.New, pepper)
 	mac.Write([]byte(token))
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// функция безопасного сравнения хэшэй
+func SecureHashCompare(expectedHash, providedHash string) bool {
+	// Тримминг на всякий случай (если хэш из внешнего источника)
+	expectedTrimmed := strings.TrimSpace(expectedHash)
+	providedTrimmed := strings.TrimSpace(providedHash)
+
+	// Быстрая проверка длины (хэши должны быть одинаковой длины)
+	if len(expectedTrimmed) != len(providedTrimmed) {
+		return false
+	}
+
+	// Константное по времени сравнение
+	return subtle.ConstantTimeCompare(
+		[]byte(expectedTrimmed),
+		[]byte(providedTrimmed),
+	) == 1
 }
