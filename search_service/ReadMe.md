@@ -50,4 +50,12 @@ user request
 ↓
 External API
 
+Nginx <-------> Search_service
+Headers from Nginx:
+────────────────────────────────────
+X-User-ID: 12345 ← Who makes the request
+X-User-Roles: user,premium ← Roles (optional)
+X-Auth-Validated: true ← Token is valid?
+X-Original-Authorization: Bearer... ← Original token (optional)
+
 repo: https://github.com/AnumSmart/Job_parser.git

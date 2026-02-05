@@ -35,7 +35,8 @@ func NewSearchServer(ctx context.Context, config *config.ServerConfig, handler *
 		c.Next()
 	})
 
-	router.Use(middleware.CORSMiddleware()) // используем для всех маршруторв работу с CORS
+	router.Use(middleware.CORSMiddleware())        // используем для всех маршруторв работу с CORS
+	router.Use(middleware.TrustedAuthMiddleware()) // проверяет, что nginx проверил токен через сервис авторизации
 
 	return &VacancySearchServer{
 		router:  router,
