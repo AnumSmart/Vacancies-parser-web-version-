@@ -118,7 +118,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// пробуем добавить refresh токен в базу
-	err = a.service.AddRefreshTokenToDb(c.Request.Context(), user.Email, refreshToken)
+	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, refreshToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка записи refreshToken в БД",

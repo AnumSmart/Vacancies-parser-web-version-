@@ -24,7 +24,7 @@ type AuthServiceInterface interface {
 	Register(ctx context.Context, email, password string) (string, error)
 	Login(ctx context.Context, email, password string) error
 	StopServices(ctx context.Context)
-	AddRefreshTokenToDb(ctx context.Context, email, refreshToken string) error
+	AddHashRefreshTokenToDb(ctx context.Context, email, refreshToken string) error
 	GetTokens(ctx context.Context, email string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error)
 }
@@ -36,11 +36,18 @@ type AuthService struct {
 }
 
 // Конструктор возвращает интерфейс
-func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManagerInterface) *AuthService {
+func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManagerInterface) (AuthServiceInterface, error) {
+	// Проверяем обязательные зависимости
+	if repo == nil {
+		return nil, fmt.Errorf("repo is required")
+	}
+	if jwt == nil {
+		return nil, fmt.Errorf("jwt manager is required")
+	}
 	return &AuthService{
 		repo:       repo,
 		jwtManager: jwt,
-	}
+	}, nil
 }
 
 // Метод регистарции пользователя (Возвращает ID пользователя и ошибку)
@@ -119,7 +126,7 @@ func (a *AuthService) GetTokens(ctx context.Context, email string) (string, stri
 }
 
 // метод работы с repo слоем, добавление refresh токена в DB
-func (a *AuthService) AddRefreshTokenToDb(ctx context.Context, email, refreshToken string) error {
+func (a *AuthService) AddHashRefreshTokenToDb(ctx context.Context, email, refreshToken string) error {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {
 		return err
@@ -145,7 +152,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 		return nil, err
 	}
 
-	// 2. Проверка срока действия (уже сделано в ParseRefreshToken)
+	// 2. Проверка срока действия (уже сделано в parsedUserRefToken)
 	if !parsedUserRefToken.Valid {
 		return nil, fmt.Errorf("token expired")
 	}
@@ -168,7 +175,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	userRefTokenHash := HashRefreshToken(refreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
 	// 5. проверка в Reddis (черный список), находится ли там запись хэша refresh токена
-	exists, err := a.repo.CheckTokenHashInBalckList(ctx, userRefTokenHash)
+	exists, err := a.repo.IsBlacklisted(ctx, userRefTokenHash)
 	if exists {
 		return nil, fmt.Errorf("current refresh token is in Black list!")
 	}
@@ -196,7 +203,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	}
 
 	// 8. добавить старый refresh токен в черный список redis (с оставшимся времененем жизни)
-	err = a.repo.AddRefreshTokenToBlackList(ctx, userRefTokenHash, claims.UserID, ttlUserRefreshToken)
+	err = a.repo.AddToBlacklist(ctx, userRefTokenHash, claims.UserID, ttlUserRefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add refresh token to black list: %w", err)
 	}

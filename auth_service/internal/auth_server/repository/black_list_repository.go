@@ -9,7 +9,7 @@ import (
 )
 
 // Специализированный интерфейс - наследует базовый + добавляет свои методы
-type TokenRepositoryInterface interface {
+type BlackListRepositoryInterface interface {
 	// Встраиваем базовый интерфейс Redis
 	redis.RedisRepositoryInterface // ← это ключевой момент!
 	// Добавляем кастомные методы для работы с токенами
@@ -25,7 +25,7 @@ type tokenRepository struct {
 }
 
 // конструктор для репозитория токенов (возвращает интерфейс)
-func NewTokenRepository(baseRepo redis.RedisRepositoryInterface, prefix string) (TokenRepositoryInterface, error) {
+func NewTokenRepository(baseRepo redis.RedisRepositoryInterface, prefix string) (BlackListRepositoryInterface, error) {
 	// Проверяем обязательные зависимости
 	if baseRepo == nil {
 		return nil, fmt.Errorf("baseRepo cannot be nil")
