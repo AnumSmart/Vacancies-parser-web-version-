@@ -15,27 +15,33 @@ import (
 
 // описание интерфейса слоя репозитория
 type AuthRepositoryInterface interface {
+	BlackListRepositoryInterface
 	CheckIfInBaseByEmail(ctx context.Context, email string) (int64, bool, error)
 	AddUser(ctx context.Context, email, hashedPass string) (int64, error)
 	FindUserByEmail(ctx context.Context, email string) (*domain.User, error)
 	AddRefreshToken(ctx context.Context, email, refreshToken string) error
-	AddRefreshTokenToBlackList(ctx context.Context, token, userID string, ttl time.Duration) error
-	CheckTokenHashInBalckList(ctx context.Context, tokenHash string) (bool, error)
 	FindTokenHashByEmail(ctx context.Context, email string) (string, error)
 }
 
 // описание структуры слоя репозитория
 type AuthRepository struct {
-	pgRepo    postgresdb.PgRepoInterface
-	tokenRepo TokenRepositoryInterface
+	PgRepo                       postgresdb.PgRepoInterface
+	BlackListRepositoryInterface // встраиваем интерфейс в структуру, чтобы у сткутуры были все методы интерфейса
 }
 
 // конструктор для слоя репозиторий
-func NewAuthRepository(pgRepo postgresdb.PgRepoInterface, tokenRepo TokenRepositoryInterface) *AuthRepository {
-	return &AuthRepository{
-		pgRepo:    pgRepo,
-		tokenRepo: tokenRepo,
+func NewAuthRepository(pgRepo postgresdb.PgRepoInterface, tokenRepo BlackListRepositoryInterface) (AuthRepositoryInterface, error) {
+	// Проверяем обязательные зависимости
+	if pgRepo == nil {
+		return nil, fmt.Errorf("pgRepo is required")
 	}
+	if tokenRepo == nil {
+		return nil, fmt.Errorf("tokenRepo is required")
+	}
+	return &AuthRepository{
+		PgRepo:                       pgRepo,
+		BlackListRepositoryInterface: tokenRepo,
+	}, nil
 }
 
 // метод repo слоя для проверки наличия записи о пользователе по email
@@ -54,7 +60,7 @@ func (a *AuthRepository) CheckIfInBaseByEmail(ctx context.Context, email string)
 
 	var user domain.User
 	// вызываем метод поиска строки у базы данных
-	err := a.pgRepo.GetPool().QueryRow(ctx, query, email).Scan(&user.ID)
+	err := a.PgRepo.GetPool().QueryRow(ctx, query, email).Scan(&user.ID)
 
 	// проверяем: или это ошибка БД или, действительно, нет такого юзера
 	if err != nil {
@@ -82,7 +88,7 @@ func (a *AuthRepository) AddUser(ctx context.Context, email, hashedPass string) 
         RETURNING id
     `
 
-	err := a.pgRepo.GetPool().QueryRow(
+	err := a.PgRepo.GetPool().QueryRow(
 		ctx,
 		query,
 		email,
@@ -114,7 +120,7 @@ func (a *AuthRepository) FindUserByEmail(ctx context.Context, email string) (*do
 		LIMIT 1
 	`
 	var user domain.User
-	err := a.pgRepo.GetPool().QueryRow(ctx, query, email).Scan(
+	err := a.PgRepo.GetPool().QueryRow(ctx, query, email).Scan(
 		&user.Email,
 		&user.PasswordHash,
 		&user.CreatedAt,
@@ -146,7 +152,7 @@ func (a *AuthRepository) FindTokenHashByEmail(ctx context.Context, email string)
 		LIMIT 1
 	`
 	var tokenHash string
-	err := a.pgRepo.GetPool().QueryRow(ctx, query, email).Scan(&tokenHash)
+	err := a.PgRepo.GetPool().QueryRow(ctx, query, email).Scan(&tokenHash)
 	if err != nil {
 		// если не нашлось такого хэша в базе, возвращаем nil и nil ошибку (это услови обработатеся на уровне сервиса)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -170,41 +176,10 @@ func (a *AuthRepository) AddRefreshToken(ctx context.Context, email, refreshToke
 		SET refresh_token = $1 
 		WHERE email = $2;
 	`
-	_, err := a.pgRepo.GetPool().Exec(ctx, query, refreshToken, email)
+	_, err := a.PgRepo.GetPool().Exec(ctx, query, refreshToken, email)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-// метод repo слоя добавления refresh jwt токена в черный список (на базе redis)
-func (a *AuthRepository) AddRefreshTokenToBlackList(ctx context.Context, token, userID string, ttl time.Duration) error {
-	// Проверяем не отменен ли контекст
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	err := a.tokenRepo.AddToBlacklist(ctx, token, userID, ttl)
-	if err != nil {
-		fmt.Printf("Error in JWT repository:%v\n", err)
-		return err
-	}
-
-	return nil
-}
-
-// метод repo слоя проверки присутствия refresh jwt токена в черном списке
-func (a *AuthRepository) CheckTokenHashInBalckList(ctx context.Context, tokenHash string) (bool, error) {
-	// Проверяем не отменен ли контекст
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
-
-	exists, err := a.tokenRepo.IsBlacklisted(ctx, tokenHash)
-	if err != nil {
-		return false, fmt.Errorf("Failed to check hashed token in black list")
-	}
-
-	return exists, nil
 }

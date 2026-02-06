@@ -39,12 +39,21 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 
 	// создаём экземпляр redis
 	redisRepo, err := redis.NewRedisRepository(conf.RedisConf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Redis repository: %w", err)
+	}
 
 	// создаём экземпляр слоя репозитория для токенов
 	tokenRepo, err := repository.NewTokenRepository(redisRepo, "auth")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Token repository: %w", err)
+	}
 
 	// создаём слой репозитория (на базе репозитория Postgres и репозитория токенов (на базе redis))
-	repo := repository.NewAuthRepository(pgRepo, tokenRepo)
+	repo, err := repository.NewAuthRepository(pgRepo, tokenRepo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Auth Repository Layer: %w", err)
+	}
 
 	// создаём сервис jwt
 	jwtManager := jwt_service.NewJWTService(conf.JWTConfig)
@@ -53,8 +62,8 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 	}
 
 	// создаём сервис аторизации
-	authService := service.NewAuthService(repo, jwtManager)
-	if authService == nil {
+	authService, err := service.NewAuthService(repo, jwtManager)
+	if authService == nil || err != nil {
 		return nil, fmt.Errorf("failed to create auth service")
 	}
 
