@@ -27,6 +27,7 @@ type AuthServiceInterface interface {
 	AddHashRefreshTokenToDb(ctx context.Context, email, refreshToken string) error
 	GetTokens(ctx context.Context, email string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error)
+	ValidateToken(ctx context.Context, token string) (*jwt_service.CustomClaims, bool, error)
 }
 
 // описание структуры сервисного слоя
@@ -44,6 +45,7 @@ func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWT
 	if jwt == nil {
 		return nil, fmt.Errorf("jwt manager is required")
 	}
+
 	return &AuthService{
 		repo:       repo,
 		jwtManager: jwt,
@@ -145,6 +147,11 @@ func (a *AuthService) AddHashRefreshTokenToDb(ctx context.Context, email, refres
 
 // метод для обновления токенов (запрос от юзера)
 func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// 1. валидируем refresh токен
 	parsedUserRefToken, err := jwt_service.ParseTokenWithClaims(ctx, refreshToken, a.jwtManager.GetJTWConfig().SecretRefKey)
 	if err != nil {
@@ -226,9 +233,37 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	return &tokens, nil
 }
 
+// метод для валидации токена от API Getway (access токен)
+func (a *AuthService) ValidateToken(ctx context.Context, token string) (*jwt_service.CustomClaims, bool, error) {
+	// Проверяем не отменен ли контекст
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+
+	//Парсим токен
+	parsedToken, err := jwt_service.ParseTokenWithClaims(ctx, token, a.jwtManager.GetJTWConfig().SecretAccKey)
+	if err != nil {
+		log.Println("Invalid token")
+		return nil, false, err
+	}
+
+	// Проверяем валидность токена
+	if !parsedToken.Valid {
+		return nil, false, fmt.Errorf("token is not valid")
+	}
+
+	// Проверяем claims
+	claims, ok := parsedToken.Claims.(*jwt_service.CustomClaims)
+	if !ok {
+		return nil, false, fmt.Errorf("wrong token claims structure")
+	}
+
+	return claims, true, nil
+}
+
 // метод остановки всех сервисов
 func (a *AuthService) StopServices(ctx context.Context) {
-	// реализация
+	// реализация---------------------------------------------------------
 }
 
 // функция для хэширования токена

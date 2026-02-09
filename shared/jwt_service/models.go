@@ -24,6 +24,7 @@ type JWTConfig struct {
 type CustomClaims struct {
 	UserID    string `json:"user_id"`
 	Email     string `json:"email"`
+	Role      string `json:"role"` // возможно будет необходимо изменить на []string
 	TokenType string `json:"type"` // "access" или "refresh"
 	jwt.RegisteredClaims
 }

@@ -52,6 +52,12 @@ func (a *AuthServer) SetUpRoutes() {
 	a.router.POST("/register", middleware.ValidateAuthMiddleware(&dto.RegisterRequest{}), a.Handler.RegisterHandler)
 	a.router.POST("/login", middleware.ValidateAuthMiddleware(&dto.LoginRequest{}), a.Handler.LoginHandler)
 	a.router.GET("/refresh", a.Handler.ProcessRefreshTokenHandler)
+
+	// Эндпоинт для валидации access токена (используется nginx)
+	a.router.POST("/api/v1/validate", a.Handler.ValidateTokenHandler)
+
+	// зазищённые эндпоинты
+	a.router.GET("/logout", a.Handler.LogoutHandler)
 }
 
 // Метод для запуска сервера
