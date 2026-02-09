@@ -7,18 +7,22 @@ import (
 	"auth_service/internal/domain"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"shared/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
 // описание интерфейса слоя хэндлеров
 type AuthHandlerInterface interface {
-	EchoAuthServer(c *gin.Context)
+	EchoAuthServer(c *gin.Context) // ЭХО для тестирования!
 	ShutDown(ctx context.Context)
-	RegisterHandler(c *gin.Context)
-	LoginHandler(c *gin.Context)
-	ProcessRefreshTokenHandler(c *gin.Context)
+	RegisterHandler(c *gin.Context)            // Хэндлер для регистрации нового пользователя (публичный)
+	LoginHandler(c *gin.Context)               // Хэндлер для логина зарегестрированного пользователя (публичный)
+	ProcessRefreshTokenHandler(c *gin.Context) // Хэндлер для обновления пары JWT токенов (публичный)
+	ValidateTokenHandler(c *gin.Context)       // Хэндлер для проверки JWT токена от API Gateway (nginx)
+	LogoutHandler(c *gin.Context)              // Хэндлер для логаута (защищён проверкой токена от nginx)
 }
 
 // структура хэндлера сервера авторизации
@@ -35,6 +39,12 @@ func NewAuthHandler(service service.AuthServiceInterface) *AuthHandler {
 
 // метод проверки работоспособности слоя хэндлеров
 func (a *AuthHandler) EchoAuthServer(c *gin.Context) {
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Hello from auth server!"})
 }
 
@@ -45,6 +55,12 @@ func (a *AuthHandler) ShutDown(ctx context.Context) {
 
 // метод слоя Handlers для обработки входящего POST запроса, валидации запроса и регистрации нового пользователя
 func (a *AuthHandler) RegisterHandler(c *gin.Context) {
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+
 	validatedData, exists := c.Get("validatedData")
 	if !exists {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
@@ -84,6 +100,12 @@ func (a *AuthHandler) RegisterHandler(c *gin.Context) {
 
 // метод слоя Handlers для обработки входящего POST запроса, валидация запроса, проверка пользователя в базе, в ответе: пара JWT токенов
 func (a *AuthHandler) LoginHandler(c *gin.Context) {
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+
 	//проверяем, есть ли в контексте валидированные данные
 	validatedData, exists := c.Get("validatedData")
 	if !exists {
@@ -117,7 +139,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// пробуем добавить refresh токен в базу
+	// создаём хэш рэфрш токена и пробуем добавить в базу
 	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, refreshToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -144,6 +166,12 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 
 // Хэндлер генерации нового access токена, при предоставлении валидного refresh токена
 func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+
 	//Проверка того, что JSON из запроса мапится в нужную структуру refresh токена
 	var req dto.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -151,11 +179,6 @@ func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
 		return
 	}
 
-	// Проверяем не отменён ли контекст
-	if c.Request.Context().Err() != nil {
-		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
-		return
-	}
 	// 3. Вызов сервиса
 	tokens, err := a.service.RefreshTokens(c.Request.Context(), req.RefreshToken)
 	if err != nil {
@@ -165,4 +188,103 @@ func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tokens)
+}
+
+// Хэндлер для валидации access токена от API Gateway (это будет внутренний эндпоинт nginx)
+func (a *AuthHandler) ValidateTokenHandler(c *gin.Context) {
+	// Проверяем Content-Type (nginx отправляет JSON)
+	if c.ContentType() != "application/json" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "Content-Type must be application/json",
+			"code":  "INVALID_CONTENT_TYPE",
+		})
+		return
+	}
+
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+
+	// Извлекаем токен из тела запроса (nginx отправляет JSON)
+	var request struct {
+		Token string `json:"token"`
+	}
+
+	// ВАЖНО: nginx отправляет JSON с полем "token"
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid JSON format",
+			"code":  "INVALID_JSON",
+		})
+		return
+	}
+
+	// Проверяем наличие токена
+	if request.Token == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "Token is required",
+			"code":  "MISSING_TOKEN",
+		})
+		return
+	}
+
+	// Проверяем формат "Bearer <token>"
+	tokenString, err := middleware.CheckBearerFormat(request.Token)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// валидируем токен в сервисном слое
+	claims, valid, err := a.service.ValidateToken(c.Request.Context(), tokenString)
+
+	// обрабатываем ошибку
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// проверяем, валидный ли токен
+	if !valid {
+		c.Status(401)
+		return // ← Выходим, не идем дальше!
+	}
+
+	// проверяем, что claim не nil
+	if claims == nil {
+		// Это не должно происходить при valid=true
+		fmt.Printf("BUG: claims is nil but token is valid")
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": "Internal server error",
+			"code":  "INTERNAL_ERROR",
+		})
+		return
+	}
+
+	// Проверяем обязательные поля в claims
+	if claims.UserID == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid token claims",
+			"code":  "INVALID_CLAIMS",
+		})
+		return
+	}
+
+	// если все успешно, возвращаем необходимые заголовки и статус
+	c.Header("X-User-ID", claims.UserID) // обязательныое поле отведа для nginx
+	c.Header("X-User-Roles", "user")     // обязательныое поле отведа для nginx (пока используем "заглушку" - user)
+	c.Status(200)
+}
+
+// Хэндлер для логаута
+func (a *AuthHandler) LogoutHandler(c *gin.Context) {
+	// Проверяем не отменён ли контекст
+	if c.Request.Context().Err() != nil {
+		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
+		return
+	}
+	// -------------- в разработке!!!!
+
 }
