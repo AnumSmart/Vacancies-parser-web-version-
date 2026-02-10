@@ -13,8 +13,8 @@ type BlackListRepositoryInterface interface {
 	// Встраиваем базовый интерфейс Redis
 	redis.RedisRepositoryInterface // ← это ключевой момент!
 	// Добавляем кастомные методы для работы с токенами
-	AddToBlacklist(ctx context.Context, token, userID string, ttl time.Duration) error
-	IsBlacklisted(ctx context.Context, tokenHash string) (bool, error)
+	AddToBlacklist(ctx context.Context, tokenJTI, tokenType, userID string, ttl time.Duration) error
+	IsBlacklisted(ctx context.Context, tokenJTI string) (bool, error)
 }
 
 // структура репозитория для токенов
@@ -44,13 +44,13 @@ func NewTokenRepository(baseRepo redis.RedisRepositoryInterface, prefix string) 
 
 // метод репозитория токенов для добавления токена в черный список
 // ключ: blacklist:хэш_токена, значение: время истечения
-func (t *tokenRepository) AddToBlacklist(ctx context.Context, token, userID string, ttl time.Duration) error {
+func (t *tokenRepository) AddToBlacklist(ctx context.Context, tokenJTI, tokenType, userID string, ttl time.Duration) error {
 	// проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	// Просто сохраняем токен с timestamp истечения
-	key := fmt.Sprintf("blacklist:%s", token)
+	key := fmt.Sprintf("blacklist:%s:%s", tokenType, tokenJTI)
 
 	// Значение - время истечения в unix timestamp
 	expiresAt := time.Now().UTC().Add(ttl).Unix()
@@ -65,13 +65,13 @@ func (t *tokenRepository) AddToBlacklist(ctx context.Context, token, userID stri
 }
 
 // метод репозитория токенов для проверки, есть ли такой ключ в черном списке
-func (t *tokenRepository) IsBlacklisted(ctx context.Context, tokenHash string) (bool, error) {
+func (t *tokenRepository) IsBlacklisted(ctx context.Context, tokenJTI string) (bool, error) {
 	// проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
 
-	key := fmt.Sprintf("blacklist:%s", tokenHash)
+	key := fmt.Sprintf("blacklist:%s", tokenJTI)
 
 	// Проверяем существование ключа
 	exists, err := t.Exists(ctx, key)

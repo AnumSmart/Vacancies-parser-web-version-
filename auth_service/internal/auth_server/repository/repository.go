@@ -19,7 +19,7 @@ type AuthRepositoryInterface interface {
 	CheckIfInBaseByEmail(ctx context.Context, email string) (int64, bool, error)
 	AddUser(ctx context.Context, email, hashedPass string) (int64, error)
 	FindUserByEmail(ctx context.Context, email string) (*domain.User, error)
-	AddRefreshToken(ctx context.Context, email, refreshToken string) error
+	AddRefreshToken(ctx context.Context, email, refreshToken, tokenJTI string) error
 	FindTokenHashByEmail(ctx context.Context, email string) (string, error)
 }
 
@@ -165,7 +165,7 @@ func (a *AuthRepository) FindTokenHashByEmail(ctx context.Context, email string)
 }
 
 // добавляем поле refreshToken в базу по email (нужно держать refreshToken в БД)
-func (a *AuthRepository) AddRefreshToken(ctx context.Context, email, refreshToken string) error {
+func (a *AuthRepository) AddRefreshToken(ctx context.Context, email, refreshToken, tokenJTI string) error {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {
 		return err
@@ -173,10 +173,11 @@ func (a *AuthRepository) AddRefreshToken(ctx context.Context, email, refreshToke
 
 	const query = `
 		UPDATE users 
-		SET refresh_token = $1 
-		WHERE email = $2;
+		SET refresh_token = $1
+		SET token_jti = $2 
+		WHERE email = $3;
 	`
-	_, err := a.PgRepo.GetPool().Exec(ctx, query, refreshToken, email)
+	_, err := a.PgRepo.GetPool().Exec(ctx, query, refreshToken, tokenJTI, email)
 	if err != nil {
 		return err
 	}

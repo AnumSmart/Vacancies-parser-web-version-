@@ -11,7 +11,7 @@ import (
 )
 
 type JWTManagerInterface interface {
-	GenerateTokens(email string) (string, string, error)
+	GenerateTokens(email string) (*TokenPair, error)
 	GetJTWConfig() *JWTConfig
 	CalculateTokenTTL(claims *CustomClaims) time.Duration
 }
@@ -30,13 +30,13 @@ var parser = jwt.NewParser(
 )
 
 // метод структуры JWT для генерации токенов (access и refresh)
-func (j *JWTService) GenerateTokens(email string) (string, string, error) {
+func (j *JWTService) GenerateTokens(email string) (*TokenPair, error) {
 	// Access токен
 	accessClaims := NewClaims(j.config.AccessTokenExp, email, "access", "my_app")
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessTokenString, err := accessToken.SignedString([]byte(j.config.SecretAccKey))
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
 	// Refresh токен
@@ -44,10 +44,18 @@ func (j *JWTService) GenerateTokens(email string) (string, string, error) {
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshTokenString, err := refreshToken.SignedString([]byte(j.config.SecretRefKey))
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	return accessTokenString, refreshTokenString, nil
+	// подготавливаем структуру результата
+	result := TokenPair{
+		AccessToken:  accessTokenString,
+		RefreshToken: refreshTokenString,
+		AccessJTI:    accessClaims.ID,
+		RefreshJTI:   refreshClaims.ID,
+	}
+
+	return &result, nil
 }
 
 func (j *JWTService) GetJTWConfig() *JWTConfig {
@@ -83,7 +91,7 @@ func (j *JWTService) CalculateTokenTTL(claims *CustomClaims) time.Duration {
 }
 
 // вспомогательная фукнция парсинга токена с клэймами
-// передаём контекст, строку рефрэш токена и секрет для рэфрэш токена
+// передаём контекст, строку токена и секрет для токена (тут или refesh или access токен)
 func ParseTokenWithClaims(ctx context.Context, tokenString string, refreshSecret string) (*jwt.Token, error) {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {

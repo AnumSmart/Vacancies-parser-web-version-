@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 	"shared/middleware"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -130,7 +132,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// Получаем access и refresh токены
-	accessToken, refreshToken, err := a.service.GetTokens(c.Request.Context(), user.Email)
+	tokenPair, err := a.service.GetTokens(c.Request.Context(), user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка при получении токенов токена",
@@ -140,7 +142,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// создаём хэш рэфрш токена и пробуем добавить в базу
-	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, refreshToken)
+	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, tokenPair.RefreshToken, tokenPair.RefreshJTI)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка записи refreshToken в БД",
@@ -150,14 +152,14 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// структура jwt токенов
-	tokenPair := domain.TokenPair{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
+	domainTokenPair := domain.TokenPair{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
 	}
 
 	// формируем ответ для пользователя
 	responce := dto.LoginResponse{
-		Tokens:    tokenPair,
+		Tokens:    domainTokenPair,
 		TokenType: "Bearer",
 	}
 
@@ -207,7 +209,7 @@ func (a *AuthHandler) ValidateTokenHandler(c *gin.Context) {
 		return
 	}
 
-	// Извлекаем токен из тела запроса (nginx отправляет JSON)
+	// Извлекаем токен из тела запроса (nginx отправляет JSON), будет access токен
 	var request struct {
 		Token string `json:"token"`
 	}
@@ -275,16 +277,82 @@ func (a *AuthHandler) ValidateTokenHandler(c *gin.Context) {
 	// если все успешно, возвращаем необходимые заголовки и статус
 	c.Header("X-User-ID", claims.UserID) // обязательныое поле отведа для nginx
 	c.Header("X-User-Roles", "user")     // обязательныое поле отведа для nginx (пока используем "заглушку" - user)
+	c.Header("X-Token-ID", claims.ID)
+	c.Header("X-Token-Type", claims.TokenType)
+	c.Header("X-Token-Exp", claims.ExpiresAt.String())
 	c.Status(200)
 }
 
 // Хэндлер для логаута
 func (a *AuthHandler) LogoutHandler(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Проверяем не отменён ли контекст
-	if c.Request.Context().Err() != nil {
+	if ctx.Err() != nil {
 		c.JSON(http.StatusRequestTimeout, gin.H{"error": "request cancelled"})
 		return
 	}
-	// -------------- в разработке!!!!
+
+	// Токен уже валидирован API Gateway
+	// Извлекаем данные из заголовков, установленных nginx
+	userID := c.GetHeader("X-User-ID")
+	tokenID := c.GetHeader("X-Token-ID")
+	tokenType := c.GetHeader("X-Token-Type")
+	expStr := c.GetHeader("X-Token-Exp")
+
+	// Если API Gateway не передал claims, возвращаем ошибку
+	if userID == "" || tokenID == "" || expStr == "" || tokenType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_request",
+			"message": "Missing authentication headers",
+		})
+		return
+	}
+
+	// Проверяем, что это access токен (не refresh)
+	if tokenType != "access" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_token_type",
+			"message": "Only access tokens can be used for logout",
+		})
+		return
+	}
+
+	// Парсим expiration time
+	expUnix, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_expiration",
+			"message": "Invalid token expiration format",
+		})
+		return
+	}
+
+	// получаем оставшееся время жизни токена (в данном случае access)
+	expiresAt := time.Unix(expUnix, 0)
+
+	ttl := time.Until(expiresAt)
+
+	// формируем структуру параметров для сервисного слоя
+	logOutParams := dto.LogOutParams{
+		UserID:    userID,
+		TokenID:   tokenID,
+		TokenType: tokenType,
+		TTL:       ttl,
+	}
+
+	// продуем провести logout
+	err = a.service.LogOut(ctx, &logOutParams)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "LogOut error",
+			"message": err.Error(),
+		})
+		return
+	}
+
+	//  успешный ответ пользователю
+	c.JSON(http.StatusOK, gin.H{
+		"message": "LogOut finished successfully",
+	})
 
 }

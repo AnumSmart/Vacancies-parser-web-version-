@@ -28,3 +28,11 @@ type CustomClaims struct {
 	TokenType string `json:"type"` // "access" или "refresh"
 	jwt.RegisteredClaims
 }
+
+// Структура пары токенов
+type TokenPair struct {
+	AccessToken  string // access токен
+	RefreshToken string // refresh токен
+	AccessJTI    string // access JTI
+	RefreshJTI   string // refresh JTI
+}
