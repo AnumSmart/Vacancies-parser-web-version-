@@ -1,7 +1,10 @@
 // описание моделей сервиса авторизации
 package dto
 
-import "auth_service/internal/domain"
+import (
+	"auth_service/internal/domain"
+	"time"
+)
 
 // структура запроса для логина пользователя
 type LoginRequest struct {
@@ -33,4 +36,13 @@ type RegisterResponse struct {
 // Структура для входящего запроса
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// Структура для логаута
+type LogOutParams struct {
+	UserID    string        // ID пользователя
+	TokenID   string        // ID токена (access)
+	TokenType string        // Тип токена
+	Token     string        // переданный токен
+	TTL       time.Duration // время жизни токена (оставшееся)
 }
