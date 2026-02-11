@@ -14,6 +14,13 @@ import (
 )
 
 func main() {
+	// обработка возможной паники
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Поймали панику:", r)
+		}
+	}()
+
 	// Создаем корневой контекст
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

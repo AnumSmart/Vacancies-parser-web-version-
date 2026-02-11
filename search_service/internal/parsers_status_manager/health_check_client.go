@@ -16,7 +16,10 @@ type HttpHealthCheckClient struct {
 	timeout time.Duration // таймаут запроса healthCheck
 }
 
+// Конструктор для клиента проверки состояния
 func NewHttpHealthCheckClient(conf *configs.HealthCheckConfig) *HttpHealthCheckClient {
+
+	// проверяем входные параметры
 	if conf == nil {
 		conf = configs.DefaultHealthCheckConfig()
 	}

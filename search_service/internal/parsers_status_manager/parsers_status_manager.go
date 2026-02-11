@@ -28,7 +28,7 @@ func NewParserStatusManager(conf *configs.SearchServiceConfig, parsers ...search
 	psm := &ParserStatusManager{
 		parsersStats: make(map[string]*search_interfaces.ParserStatus),
 		config:       conf, // конфиг для коиента health check
-		client:       NewHttpHealthCheckClient(conf.HealthChech),
+		client:       NewHttpHealthCheckClient(conf.HealthCheck),
 		initComplete: make(chan struct{}),
 		stopChan:     make(chan struct{}),
 	}
@@ -64,7 +64,7 @@ func (psm *ParserStatusManager) startHealthChecker() {
 		close(psm.initComplete)
 
 		// запускаем тикер, который через определённое время будет запускать проверку состояния парсеров
-		ticker := time.NewTicker(psm.config.HealthChech.HealthCheckInterval)
+		ticker := time.NewTicker(psm.config.HealthCheck.HealthCheckInterval)
 		defer ticker.Stop()
 
 		for {

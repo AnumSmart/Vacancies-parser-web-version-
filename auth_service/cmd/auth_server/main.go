@@ -9,11 +9,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
 
 func main() {
+	// обработка возможной паники
+	defer recoverWithDetails()
+
 	// Создаем корневой контекст
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -60,4 +65,32 @@ func main() {
 	// Остановка сервисов
 	server.Handler.ShutDown(ctx)
 
+}
+
+func recoverWithDetails() {
+	if r := recover(); r != nil {
+		fmt.Printf("❌ ПАНИКА: %v\n", r)
+
+		// Пропускаем первые 2 фрейма (recover и текущую defer функцию)
+		pc := make([]uintptr, 10)
+		n := runtime.Callers(3, pc)
+		frames := runtime.CallersFrames(pc[:n])
+
+		fmt.Println("📍 Стек вызовов:")
+		i := 0
+		for {
+			frame, more := frames.Next()
+
+			// Пропускаем runtime фреймы
+			if !strings.Contains(frame.File, "runtime/") {
+				fmt.Printf("  %d. %s\n", i, frame.Function)
+				fmt.Printf("     %s:%d\n", frame.File, frame.Line)
+				i++
+			}
+
+			if !more {
+				break
+			}
+		}
+	}
 }
