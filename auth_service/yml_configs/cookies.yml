@@ -1,0 +1,7 @@
+domain: ''
+project_mode: 'development'
+secure: false
+same_site: 'lax'
+default_path: '/'
+refresh_max_age: '168h'
+prefix: ''

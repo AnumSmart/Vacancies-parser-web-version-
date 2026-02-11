@@ -11,21 +11,32 @@ import (
 )
 
 type AuthServiceConfig struct {
-	ServerConf     *config.ServerConfig
-	PostgresDBConf *config.PostgresDBConfig
-	RedisConf      *config.RedisConfig
-	JWTConfig      *jwt_service.JWTConfig // секретные ключи для подписи и время жизни
+	ServerConf          *config.ServerConfig
+	PostgresDBConf      *config.PostgresDBConfig
+	RedisConf           *config.RedisConfig
+	JWTConfig           *jwt_service.JWTConfig // секретные ключи для подписи и время жизни
+	CookieManagerConfig *config.CookieManagerConfig
 }
+
+const (
+	envPath = "c:\\Son_Alex\\GO_projects\\go_v_1_23_web\\vacancy_parser\\auth_service\\.env"
+)
 
 // загружаем конфиг-данные из .env
 func LoadConfig() (*AuthServiceConfig, error) {
-	err := godotenv.Load("c:\\Son_Alex\\GO_projects\\go_v_1_23_web\\vacancy_parser\\auth_service\\.env")
+	err := godotenv.Load(envPath)
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
 
 	// загружаем данные из .yml файла для serverConfig
 	serverConfig, err := config.LoadYAMLConfig[config.ServerConfig](os.Getenv("SERVER_CONFIG_ADDRESS_STRING"), config.UseDefaultServerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
+	}
+
+	// загружаем данные из .yml файла для cookieConfig
+	cookieConfig, err := config.LoadYAMLConfig[config.CookieManagerConfig](os.Getenv("COOKIE_CONFIG_ADDRESS_STRING"), config.DefaultCookieConfig)
 	if err != nil {
 		return nil, fmt.Errorf("Error during loading config: %s\n", err.Error())
 	}
@@ -49,9 +60,10 @@ func LoadConfig() (*AuthServiceConfig, error) {
 	}
 
 	return &AuthServiceConfig{
-		ServerConf:     serverConfig,
-		PostgresDBConf: postgresDBConfig,
-		RedisConf:      redisConfig,
-		JWTConfig:      jwtConfig,
+		ServerConf:          serverConfig,
+		PostgresDBConf:      postgresDBConfig,
+		RedisConf:           redisConfig,
+		JWTConfig:           jwtConfig,
+		CookieManagerConfig: cookieConfig,
 	}, nil
 }

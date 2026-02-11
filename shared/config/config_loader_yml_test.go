@@ -71,8 +71,8 @@ enabled: true
 			t.Fatal(err)
 		}
 
-		cfg, err := LoadYAMLConfig(configFile, func() *TestConfig {
-			return &TestConfig{
+		cfg, err := LoadYAMLConfig(configFile, func() TestConfig {
+			return TestConfig{
 				Port:    8080, // значения по умолчанию
 				Host:    "localhost",
 				Enabled: false,
@@ -131,8 +131,8 @@ host: example.com
 			t.Fatal(err)
 		}
 
-		cfg, err := LoadYAMLConfig(configFile, func() *TestConfig {
-			return &TestConfig{
+		cfg, err := LoadYAMLConfig(configFile, func() TestConfig {
+			return TestConfig{
 				Port:    1234,
 				Host:    "default-host",
 				Enabled: true,
@@ -171,8 +171,8 @@ enabled: false
 			t.Fatal(err)
 		}
 
-		cfg, err := LoadYAMLConfig(configFile, func() *TestConfig {
-			return &TestConfig{
+		cfg, err := LoadYAMLConfig(configFile, func() TestConfig {
+			return TestConfig{
 				Port:    1111,
 				Host:    "default",
 				Enabled: true,
