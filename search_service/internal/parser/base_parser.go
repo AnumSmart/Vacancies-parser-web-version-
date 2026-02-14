@@ -8,11 +8,10 @@ import (
 	"io"
 	"net/http"
 	"search_service/internal/domain/models"
+	"search_service/internal/search_interfaces"
 	"search_service/pkg"
-
 	"shared/circuitbreaker"
 	"shared/config"
-	"shared/interfaces"
 	"shared/rate_limiter"
 	"time"
 )
@@ -36,15 +35,15 @@ type BaseConfig struct {
 
 // BaseParser базовая реализация парсера
 type BaseParser struct {
-	name           string                 // имя парсера (к какому источнику будет привязан)
-	baseURL        string                 // базовый URL, через который бдет осуществляться парсинг
-	healthEndPoint string                 // URL, через который бдет осуществляться health check
-	apiKey         string                 // API ключ, если предусмотрен сервисом
-	httpClient     *http.Client           // экземпляр клиента, через который будем проводить парсинг на внешнем источнике
-	rateLimiter    interfaces.RateLimiter // экземпляр rate limiter (ограничение частоты обращения к ресурсу)
-	circuitBreaker interfaces.CBInterface // экземпляр для circuit breaker (отказоустойчивость)
-	semaphore      chan struct{}          // семафор (ограничение конкурентности)
-	maxConcurrent  int                    // размер буфера для семафора
+	name           string                        // имя парсера (к какому источнику будет привязан)
+	baseURL        string                        // базовый URL, через который бдет осуществляться парсинг
+	healthEndPoint string                        // URL, через который бдет осуществляться health check
+	apiKey         string                        // API ключ, если предусмотрен сервисом
+	httpClient     *http.Client                  // экземпляр клиента, через который будем проводить парсинг на внешнем источнике
+	rateLimiter    search_interfaces.RateLimiter // интерфейс rate limiter (ограничение частоты обращения к ресурсу)
+	circuitBreaker search_interfaces.CBInterface // интерфейс для circuit breaker (отказоустойчивость)
+	semaphore      chan struct{}                 // семафор (ограничение конкурентности)
+	maxConcurrent  int                           // размер буфера для семафора
 }
 
 // Конструктор, который создает базовый парсер
@@ -321,7 +320,7 @@ func (p *BaseParser) GetHealthEndPoint() string {
 }
 
 // Отдельная функция с дженериками для определния : обычная ошибка или ошибка circuitBreaker
-func handleCircuitBreakerErrorUniversal[T any](name string, cb interfaces.CBInterface, err error) (T, error) {
+func handleCircuitBreakerErrorUniversal[T any](name string, cb search_interfaces.CBInterface, err error) (T, error) {
 	var zero T
 
 	if errors.Is(err, circuitbreaker.ErrCircuitOpen) {

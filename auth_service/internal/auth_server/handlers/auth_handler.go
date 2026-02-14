@@ -131,7 +131,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// Получаем access и refresh токены
+	// Получаем access и refresh токены, если метод Login отработал без ошибок
 	tokenPair, err := a.service.GetTokens(c.Request.Context(), user.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -141,7 +141,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// создаём хэш рэфрш токена и пробуем добавить в базу
+	// создаём хэш рэфрэш токена и пробуем добавить в базу
 	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, tokenPair.RefreshToken, tokenPair.RefreshJTI)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -150,6 +150,10 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 		})
 		return
 	}
+
+	// ----------------------------------------------------------------------------------------------------------------
+	// доделать работу с cookie через cookieManager (access -- вернуть в ответе в JSON, refresh в cookie)--------------
+	// ----------------------------------------------------------------------------------------------------------------
 
 	// структура jwt токенов
 	domainTokenPair := domain.TokenPair{
@@ -188,6 +192,10 @@ func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	// ----------------------------------------------------------------------------------------------------------------
+	// доделать работу с cookie через cookieManager (access -- вернуть в ответе в JSON, refresh в cookie)--------------
+	// ----------------------------------------------------------------------------------------------------------------
 
 	c.JSON(http.StatusOK, tokens)
 }
@@ -349,6 +357,10 @@ func (a *AuthHandler) LogoutHandler(c *gin.Context) {
 		})
 		return
 	}
+
+	// ----------------------------------------------------------------------------------------------------------------
+	// доделать работу с cookie через cookieManager (ивалидация cookie)------------------------------------------------
+	// ----------------------------------------------------------------------------------------------------------------
 
 	//  успешный ответ пользователю
 	c.JSON(http.StatusOK, gin.H{

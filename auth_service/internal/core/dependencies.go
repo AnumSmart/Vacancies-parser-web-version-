@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"shared/cookie"
 	"shared/jwt_service"
 	postgresdb "shared/postgres_db"
 	redis "shared/redis"
@@ -32,25 +33,26 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 	}
 
 	// создаём экземпляр пула соединений для postgresQL
-	pgRepo, err := postgresdb.NewPgRepo(ctx, conf.PostgresDBConf)
+	// адаптер к глобальному интерфейсу используется внутри NewPoolWithConfig
+	pgPool, err := postgresdb.NewPoolWithConfig(ctx, conf.PostgresDBConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create PostgreSQL repository: %w", err)
 	}
 
+	// создаём репозиторий для авторизации пользователя
+	userRepo := repository.NewAuthUserRepository(pgPool)
+
 	// создаём экземпляр redis
-	redisRepo, err := redis.NewRedisRepository(conf.RedisConf)
+	redisCacheRepo, err := redis.NewRedisCacheRepository(conf.RedisConf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Redis repository: %w", err)
+		return nil, fmt.Errorf("failed to create Black List repository (based om Redis): %w", err)
 	}
 
-	// создаём экземпляр слоя репозитория для токенов
-	tokenRepo, err := repository.NewTokenRepository(redisRepo, "auth")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Token repository: %w", err)
-	}
+	// создаём репозиторий черного списка
+	blackListrepo, err := repository.NewBlackListRepo(redisCacheRepo, "auth")
 
 	// создаём слой репозитория (на базе репозитория Postgres и репозитория токенов (на базе redis))
-	repo, err := repository.NewAuthRepository(pgRepo, tokenRepo)
+	repo, err := repository.NewAuthRepository(userRepo, blackListrepo)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Auth Repository Layer: %w", err)
 	}
@@ -61,9 +63,17 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 		return nil, fmt.Errorf("failed to create jwt service")
 	}
 
+	// создаем менеджера куки
+	cookieManager := cookie.NewManager(conf.CookieManagerConfig)
+
 	// создаём сервис аторизации
-	authService, err := service.NewAuthService(repo, jwtManager)
-	if authService == nil || err != nil {
+	authService, err := service.NewAuthService(repo, jwtManager, cookieManager)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth service")
+	}
+
+	if authService == nil {
 		return nil, fmt.Errorf("failed to create auth service")
 	}
 
