@@ -3,51 +3,38 @@ package postgresdb
 import (
 	"context"
 	"fmt"
+	"global_models/global_db"
 	"shared/config"
 
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-type PgRepoInterface interface {
-	Close()
-	GetPool() *pgxpool.Pool
-}
-
-type PgRepo struct {
-	closeOnce sync.Once
-	pool      *pgxpool.Pool
-}
-
-// NewPgRepo creates a new PostgreSQL repository with properly configured connection pool
-func NewPgRepo(ctx context.Context, conf *config.PostgresDBConfig) (*PgRepo, error) {
-	// Parse the connection string into a pgxpool.Config
+// NewPoolWithConfig - создает pool из конфига и возвращает db.Pool (глобальный интерфейс)
+// конструктор создаёт сущность на базе конфига и применяет адаптер, чтобы соответсвовать глобальному интерфейсу db.Pool
+func NewPoolWithConfig(ctx context.Context, conf *config.PostgresDBConfig) (global_db.Pool, error) {
+	// 1. Парсим конфиг
 	poolConfig, err := pgxpool.ParseConfig(conf.DSN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse DB DSN: %w", err)
 	}
 
-	// Configure connection pool settings
+	// 2. Настраиваем pool
 	poolConfig.MaxConns = conf.MaxConns
 	poolConfig.MinConns = conf.MinConns
-
-	// Configure connection health checks
 	poolConfig.HealthCheckPeriod = conf.HealthCheckPeriod
 	poolConfig.MaxConnLifetime = conf.MaxConnLifetime
 	poolConfig.MaxConnIdleTime = conf.MaxConnIdleTime
-
-	// Configure connection timeouts
 	poolConfig.ConnConfig.ConnectTimeout = conf.ConnectTimeout
 
-	// Create the connection pool with context
+	// 3. Создаем pool
 	pool, err := pgxpool.ConnectConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Verify the connection
+	// 4. Проверяем соединение
 	connCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -55,21 +42,6 @@ func NewPgRepo(ctx context.Context, conf *config.PostgresDBConfig) (*PgRepo, err
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &PgRepo{
-		pool: pool,
-	}, nil
-}
-
-// Close gracefully closes the connection pool (only once)
-func (r *PgRepo) Close() {
-	r.closeOnce.Do(func() {
-		if r.pool != nil {
-			r.pool.Close()
-		}
-	})
-}
-
-// GetPool returns the connection pool (useful for transactions)
-func (r *PgRepo) GetPool() *pgxpool.Pool {
-	return r.pool
+	// 5. Возвращаем адаптер как db.Pool
+	return NewPoolAdapter(pool), nil
 }

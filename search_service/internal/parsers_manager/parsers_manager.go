@@ -7,8 +7,6 @@ import (
 	"search_service/configs"
 	"search_service/internal/search_interfaces"
 	"shared/circuitbreaker"
-	"shared/inmemory_cache"
-	"shared/interfaces"
 	"shared/queue"
 	"sync"
 	"time"
@@ -18,20 +16,20 @@ import (
 type ParsersManager struct {
 	parsers              []search_interfaces.Parser             // парсеры, которыми оперирует мэнеджер
 	config               *configs.SearchServiceConfig           // общий конфиг
-	SearchCache          *inmemory_cache.InmemoryShardedCache   // поисковый кэш
-	VacancyIndex         *inmemory_cache.InmemoryShardedCache   // кэш для обратного индекса
-	vacancyDetails       *inmemory_cache.InmemoryShardedCache   // кэш для деталей вакансии
+	SearchCache          search_interfaces.CacheInterface       // поисковый кэш
+	VacancyIndex         search_interfaces.CacheInterface       // кэш для обратного индекса
+	vacancyDetails       search_interfaces.CacheInterface       // кэш для деталей вакансии
 	parsersStatusManager search_interfaces.ParsersStatusManager // менеджер сотсояний парверов внутри менеджера
-	circuitBreaker       interfaces.CBInterface                 // глобальный circut breaker (используем интерфейс)
+	circuitBreaker       search_interfaces.CBInterface          // глобальный circut breaker (используем интерфейс)
 
 	// Поля для управления нагрузкой --------------------------------------------------------------------------
-	semaphore          chan struct{}                                        // Семафор для ограничения одновременных запросов
-	jobSearchQueue     interfaces.FIFOQueueInterface[search_interfaces.Job] // Очередь заданий (в качестве типа используем интерфейс с дженеником)
-	workers            int                                                  // Количество воркеров
-	stopWorkers        chan struct{}                                        // Сигнал остановки воркеров (когда захотим завершить все воркеры - зкрываем канал)
-	semaSlotGetTimeout time.Duration                                        // таймаут ожидания свободного слота глобального семафора менеджера парсеров
-	wg                 sync.WaitGroup                                       // Для graceful shutdown
-	mu                 sync.RWMutex                                         // Для потокобезопасности
+	semaphore          chan struct{}                                               // Семафор для ограничения одновременных запросов
+	jobSearchQueue     search_interfaces.FIFOQueueInterface[search_interfaces.Job] // Очередь заданий (в качестве типа используем интерфейс с дженеником)
+	workers            int                                                         // Количество воркеров
+	stopWorkers        chan struct{}                                               // Сигнал остановки воркеров (когда захотим завершить все воркеры - зкрываем канал)
+	semaSlotGetTimeout time.Duration                                               // таймаут ожидания свободного слота глобального семафора менеджера парсеров
+	wg                 sync.WaitGroup                                              // Для graceful shutdown
+	mu                 sync.RWMutex                                                // Для потокобезопасности
 	// --------------------------------------------------------------------------------------------------------
 }
 
@@ -60,9 +58,9 @@ func NewPMLoad(numCPUCores int) *PMLoad {
 // Конструктор для мэнеджера парсинга из разных источников
 func NewParserManager(config *configs.SearchServiceConfig,
 	numCPUCores int,
-	searchCache *inmemory_cache.InmemoryShardedCache,
-	vacancyIndex *inmemory_cache.InmemoryShardedCache,
-	vacancyDetails *inmemory_cache.InmemoryShardedCache,
+	searchCache search_interfaces.CacheInterface,
+	vacancyIndex search_interfaces.CacheInterface,
+	vacancyDetails search_interfaces.CacheInterface,
 	pStatManager search_interfaces.ParsersStatusManager,
 	parsers ...search_interfaces.Parser) (*ParsersManager, error) {
 

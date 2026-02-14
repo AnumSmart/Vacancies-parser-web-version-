@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"global_models/global_cookie"
 	"log"
 	"shared/jwt_service"
 	"strconv"
@@ -34,12 +35,13 @@ type AuthServiceInterface interface {
 
 // описание структуры сервисного слоя
 type AuthService struct {
-	repo       repository.AuthRepositoryInterface
-	jwtManager jwt_service.JWTManagerInterface
+	repo          *repository.AuthRepository // слой репоизтория (прямая зависимость)
+	jwtManager    jwt_service.JWTManagerInterface
+	cookieManager global_cookie.CookieManagerInterface
 }
 
 // Конструктор возвращает интерфейс
-func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWTManagerInterface) (AuthServiceInterface, error) {
+func NewAuthService(repo *repository.AuthRepository, jwt jwt_service.JWTManagerInterface, cookieManager global_cookie.CookieManagerInterface) (AuthServiceInterface, error) {
 	if repo == nil {
 		return nil, fmt.Errorf("repo must not be nil")
 	}
@@ -47,9 +49,14 @@ func NewAuthService(repo repository.AuthRepositoryInterface, jwt jwt_service.JWT
 	if jwt == nil {
 		return nil, fmt.Errorf("jwt must not be nil")
 	}
+
+	if cookieManager == nil {
+		return nil, fmt.Errorf("cookieManager must not be nil")
+	}
 	return &AuthService{
-		repo:       repo,
-		jwtManager: jwt,
+		repo:          repo,
+		jwtManager:    jwt,
+		cookieManager: cookieManager,
 	}, nil
 }
 
@@ -62,7 +69,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 	}
 
 	// проверяем, есть ли юзер с такми е-маилом в базе
-	userID, isInBase, err := s.repo.CheckIfInBaseByEmail(ctx, email)
+	userID, isInBase, err := s.repo.DBRepo.CheckIfInBaseByEmail(ctx, email)
 	if err != nil {
 		return "Found no userID!", err
 	}
@@ -79,7 +86,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 	}
 
 	// пробуем добавить нового юзера в базу данных, возвращем ID юзера и ошибку
-	userID, err = s.repo.AddUser(ctx, email, string(hashedPassword))
+	userID, err = s.repo.DBRepo.AddUser(ctx, email, string(hashedPassword))
 	if err != nil {
 		return "", errors.New("failed to add new user to the DB")
 	}
@@ -94,7 +101,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) error {
 	}
 
 	// Проверяем существует ли пользователь с данным email уже в базе.
-	existedUser, err := s.repo.FindUserByEmail(ctx, email)
+	existedUser, err := s.repo.DBRepo.FindUserByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -139,7 +146,7 @@ func (a *AuthService) AddHashRefreshTokenToDb(ctx context.Context, email, refres
 	hashedRefreshToken := HashRefreshToken(refreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
 	// добавляем в базу хэшированное значение refresh токена
-	err := a.repo.AddRefreshToken(ctx, email, hashedRefreshToken, tokenJTI)
+	err := a.repo.DBRepo.AddRefreshToken(ctx, email, hashedRefreshToken, tokenJTI)
 	if err != nil {
 		return err
 	}
@@ -183,13 +190,13 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	userRefTokenHash := HashRefreshToken(refreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
 	// 5. проверка в Reddis (черный список), находится ли там запись хэша refresh токена
-	exists, err := a.repo.IsBlacklisted(ctx, claims.ID)
+	exists, err := a.repo.BlackListRepo.IsBlacklisted(ctx, claims.ID)
 	if exists {
 		return nil, fmt.Errorf("current refresh token is in Black list!")
 	}
 
 	// 6. Полная проверка в БД (проверяем хэш переданного от юзера refresh токена)
-	tokenHashFromDB, err := a.repo.FindTokenHashByEmail(ctx, claims.Email)
+	tokenHashFromDB, err := a.repo.DBRepo.FindTokenHashByEmail(ctx, claims.Email)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to find token in base by email from claims")
 	}
@@ -201,7 +208,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	}
 
 	// 8. получаем пользователя из базы на основании claims
-	user, err := a.repo.FindUserByEmail(ctx, claims.Email)
+	user, err := a.repo.DBRepo.FindUserByEmail(ctx, claims.Email)
 	if err != nil {
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
@@ -213,7 +220,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	}
 
 	// 10. добавить старый refresh токен в черный список redis (с оставшимся времененем жизни)
-	err = a.repo.AddToBlacklist(ctx, claims.ID, claims.TokenType, claims.UserID, ttlUserRefreshToken)
+	err = a.repo.BlackListRepo.AddToBlacklist(ctx, claims.ID, claims.TokenType, claims.UserID, ttlUserRefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add refresh token to black list: %w", err)
 	}
@@ -222,7 +229,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	newRefeshTokenHash := HashRefreshToken(tokenPair.RefreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
 	// 12. Сохранить новый refresh-токен в БД (создаем новый хэш, обновляем в базе)
-	err = a.repo.AddRefreshToken(ctx, claims.Email, newRefeshTokenHash, tokenPair.RefreshJTI)
+	err = a.repo.DBRepo.AddRefreshToken(ctx, claims.Email, newRefeshTokenHash, tokenPair.RefreshJTI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Update refreshHash in DB: %w", err)
 	}
@@ -274,7 +281,7 @@ func (a *AuthService) LogOut(ctx context.Context, params *dto.LogOutParams) erro
 	// Добавляем access токен в Redis blacklist
 	if params.TTL > 0 {
 		// тут в параметры передаём не сам токен, а токен JTI
-		err := a.repo.AddToBlacklist(ctx, params.TokenID, params.TokenType, params.UserID, params.TTL)
+		err := a.repo.BlackListRepo.AddToBlacklist(ctx, params.TokenID, params.TokenType, params.UserID, params.TTL)
 		if err != nil {
 			fmt.Printf("Error during blacklisting access token:%v\n", err)
 		}

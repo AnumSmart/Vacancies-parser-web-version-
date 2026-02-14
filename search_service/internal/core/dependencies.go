@@ -8,18 +8,18 @@ import (
 	"search_service/internal/parser"
 	"search_service/internal/parsers_manager"
 	"search_service/internal/parsers_status_manager"
+	"search_service/internal/search_interfaces"
 	"search_service/internal/search_server/handlers"
 	"search_service/internal/search_server/service"
-
 	"shared/inmemory_cache"
 )
 
 // SearchServiceDependencies содержит все общие зависимости
 type SearchServiceDependencies struct {
 	Config              *configs.SearchServiceConfig
-	SearchCache         *inmemory_cache.InmemoryShardedCache
-	VacancyIndex        *inmemory_cache.InmemoryShardedCache
-	VacancyDetails      *inmemory_cache.InmemoryShardedCache
+	SearchCache         search_interfaces.CacheInterface
+	VacancyIndex        search_interfaces.CacheInterface
+	VacancyDetails      search_interfaces.CacheInterface
 	ParserFactory       *parser.ParserFactory
 	ParserStatusManager *parsers_status_manager.ParserStatusManager
 	ParserManager       *parsers_manager.ParsersManager

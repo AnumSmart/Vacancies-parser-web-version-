@@ -4,4 +4,5 @@ use (
 	./auth_service
 	./search_service
 	./shared
+	./global_models
 )

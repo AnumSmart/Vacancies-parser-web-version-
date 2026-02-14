@@ -2,40 +2,29 @@ package cookie
 
 import (
 	"fmt"
+	globalmodels "global_models"
+	"global_models/global_cookie"
 	"net/http"
 	"shared/config"
 
 	"github.com/gin-gonic/gin"
 )
 
-// интерфейс для использовании во внешних модулях
-type CookieManagerInterface interface {
-	SetCookie(c *gin.Context, opts CookieOptions) error
-	GetCookie(c *gin.Context, name string) (string, error)
-	DeleteCookie(c *gin.Context, name, path string)
-}
+// Проверяем, что Manager реализует интерфейс
+var _ global_cookie.CookieManagerInterface = (*Manager)(nil)
 
 // Manager - только базовая установка кук
 type Manager struct {
-	config config.CookieManagerConfig
+	config *config.CookieManagerConfig
 }
 
 // конструктор для мэнеджера куки
-func NewManager(config config.CookieManagerConfig) *Manager {
+func NewManager(config *config.CookieManagerConfig) global_cookie.CookieManagerInterface {
 	return &Manager{config: config}
 }
 
-// структура опций для работы с куки
-type CookieOptions struct {
-	Name     string // имя куки
-	Value    string // значение
-	MaxAge   int    // в секундах
-	Path     string // путь
-	HttpOnly *bool  // nil = использовать дефолт (true)
-}
-
-// SetCookie - самый общий метод. Установка куки, согласно переданным параетрам
-func (m *Manager) SetCookie(c *gin.Context, opts CookieOptions) error {
+// SetCookie - самый общий метод. Установка куки, согласно переданным параметрам
+func (m *Manager) SetCookie(c *gin.Context, opts globalmodels.CookieOptions) error {
 	// проверяем наличие имени
 	if opts.Name == "" {
 		return fmt.Errorf("cookie name must not be empty")
@@ -66,6 +55,7 @@ func (m *Manager) SetCookie(c *gin.Context, opts CookieOptions) error {
 
 	c.SetSameSite(sameSite)
 
+	// устанавливаем заголоки для ответа
 	c.SetCookie(
 		cookieName,
 		opts.Value,
