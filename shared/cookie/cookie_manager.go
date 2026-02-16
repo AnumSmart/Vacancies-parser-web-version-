@@ -6,6 +6,7 @@ import (
 	"global_models/global_cookie"
 	"net/http"
 	"shared/config"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -37,13 +38,16 @@ func (m *Manager) SetCookie(c *gin.Context, opts globalmodels.CookieOptions) err
 	}
 
 	// Определяем параметры безопасности
-	secure := m.config.Secure
+	// Динамический Secure
+	isSecure := c.Request.Header.Get("X-Forwarded-Proto") == "https" || c.Request.TLS != nil
+	secure := m.config.Secure || isSecure
+
 	sameSite := m.parseSameSite()
-	domain := m.getDomain()
+	domain := m.getDomain(cookieName)
 
 	// Путь по умолчанию если не указан
 	path := opts.Path
-	if path == "" {
+	if path == "" || !strings.HasPrefix(path, "/") {
 		path = m.config.DefaultPath
 	}
 
@@ -59,7 +63,7 @@ func (m *Manager) SetCookie(c *gin.Context, opts globalmodels.CookieOptions) err
 	c.SetCookie(
 		cookieName,
 		opts.Value,
-		opts.MaxAge,
+		int(m.config.RefreshMaxAge),
 		path,
 		domain,
 		secure,
@@ -105,9 +109,12 @@ func (m *Manager) DeleteCookie(c *gin.Context, name, path string) {
 	}
 
 	// Определяем параметры безопасности
-	secure := m.config.Secure
+	// Динамический Secure
+	isSecure := c.Request.Header.Get("X-Forwarded-Proto") == "https" || c.Request.TLS != nil
+	secure := m.config.Secure || isSecure
+
 	sameSite := m.parseSameSite()
-	domain := m.getDomain()
+	domain := m.getDomain(cookieName)
 
 	// Устанавливаем SameSite
 	c.SetSameSite(sameSite)
@@ -125,11 +132,15 @@ func (m *Manager) DeleteCookie(c *gin.Context, name, path string) {
 }
 
 // Вспомогательные методы
-func (m *Manager) getDomain() string {
+func (m *Manager) getDomain(cookieName string) string {
+	// Domain - безопасное значение
 	if m.config.ProjectMode == "production" && m.config.Domain != "" {
-		return m.config.Domain
+		// Проверяем, что не пытаемся установить __Host- куку с domain
+		if !strings.HasPrefix(cookieName, "__Host-") {
+			return m.config.Domain
+		}
 	}
-	return "" // для localhost/development
+	return ""
 }
 
 func (m *Manager) parseSameSite() http.SameSite {
