@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"global_models/global_cookie"
 	"log"
 	"shared/jwt_service"
 	"strconv"
@@ -24,7 +23,7 @@ import (
 // описание интерфейса сервисного слоя
 type AuthServiceInterface interface {
 	Register(ctx context.Context, email, password string) (string, error)
-	Login(ctx context.Context, email, password string) error
+	Login(ctx context.Context, email, password string) (int64, error)
 	LogOut(ctx context.Context, params *dto.LogOutParams) error
 	StopServices(ctx context.Context)
 	AddHashRefreshTokenToDb(ctx context.Context, email, refreshToken, tokenJTI string) error
@@ -35,13 +34,12 @@ type AuthServiceInterface interface {
 
 // описание структуры сервисного слоя
 type AuthService struct {
-	repo          *repository.AuthRepository // слой репоизтория (прямая зависимость)
-	jwtManager    jwt_service.JWTManagerInterface
-	cookieManager global_cookie.CookieManagerInterface
+	repo       *repository.AuthRepository // слой репоизтория (прямая зависимость)
+	jwtManager jwt_service.JWTManagerInterface
 }
 
 // Конструктор возвращает интерфейс
-func NewAuthService(repo *repository.AuthRepository, jwt jwt_service.JWTManagerInterface, cookieManager global_cookie.CookieManagerInterface) (AuthServiceInterface, error) {
+func NewAuthService(repo *repository.AuthRepository, jwt jwt_service.JWTManagerInterface) (AuthServiceInterface, error) {
 	if repo == nil {
 		return nil, fmt.Errorf("repo must not be nil")
 	}
@@ -50,13 +48,9 @@ func NewAuthService(repo *repository.AuthRepository, jwt jwt_service.JWTManagerI
 		return nil, fmt.Errorf("jwt must not be nil")
 	}
 
-	if cookieManager == nil {
-		return nil, fmt.Errorf("cookieManager must not be nil")
-	}
 	return &AuthService{
-		repo:          repo,
-		jwtManager:    jwt,
-		cookieManager: cookieManager,
+		repo:       repo,
+		jwtManager: jwt,
 	}, nil
 }
 
@@ -94,30 +88,30 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 }
 
 // Метод проверки соответствия пользователя с информацией в базе
-func (s *AuthService) Login(ctx context.Context, email, password string) error {
+func (s *AuthService) Login(ctx context.Context, email, password string) (int64, error) {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {
-		return err
+		return 0, err
 	}
 
 	// Проверяем существует ли пользователь с данным email уже в базе.
 	existedUser, err := s.repo.DBRepo.FindUserByEmail(ctx, email)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// если указатель на пользователя == nil, значит пользователь не был найден
 	if existedUser == nil {
 		log.Printf("error during search in the DB, user = %v", existedUser)
-		return domain.ErrUserWrongCredentials
+		return 0, domain.ErrUserWrongCredentials
 	}
 
 	//сравниваем хэши паролей, тот, что в базе и тот, что логинится
 	err = bcrypt.CompareHashAndPassword([]byte(existedUser.PasswordHash), []byte(password))
 	if err != nil {
-		return domain.ErrUserWrongCredentials
+		return 0, domain.ErrUserWrongCredentials
 	}
 
-	return nil
+	return existedUser.ID, nil
 }
 
 // метод для генерации jwt токенов

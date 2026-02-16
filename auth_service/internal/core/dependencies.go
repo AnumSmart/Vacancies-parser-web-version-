@@ -43,13 +43,13 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 	userRepo := repository.NewAuthUserRepository(pgPool)
 
 	// создаём экземпляр redis
-	redisCacheRepo, err := redis.NewRedisCacheRepository(conf.RedisConf)
+	redisCacherepo, err := redis.NewRedisCacheRepository(conf.RedisConf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Black List repository (based om Redis): %w", err)
 	}
 
 	// создаём репозиторий черного списка
-	blackListrepo, err := repository.NewBlackListRepo(redisCacheRepo, "auth")
+	blackListrepo, err := repository.NewBlackListRepo(redisCacherepo, "auth")
 
 	// создаём слой репозитория (на базе репозитория Postgres и репозитория токенов (на базе redis))
 	repo, err := repository.NewAuthRepository(userRepo, blackListrepo)
@@ -65,9 +65,12 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 
 	// создаем менеджера куки
 	cookieManager := cookie.NewManager(conf.CookieManagerConfig)
+	if cookieManager == nil {
+		return nil, fmt.Errorf("failed to create cookieManager")
+	}
 
 	// создаём сервис аторизации
-	authService, err := service.NewAuthService(repo, jwtManager, cookieManager)
+	authService, err := service.NewAuthService(repo, jwtManager)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth service")
@@ -78,7 +81,7 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 	}
 
 	// создаём хэндлер поиска
-	authHandler := handlers.NewAuthHandler(authService)
+	authHandler := handlers.NewAuthHandler(authService, cookieManager)
 	if authHandler == nil {
 		return nil, fmt.Errorf("failed to create auth handler")
 	}

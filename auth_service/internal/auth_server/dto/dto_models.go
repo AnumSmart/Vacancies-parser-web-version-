@@ -2,7 +2,6 @@
 package dto
 
 import (
-	"auth_service/internal/domain"
 	"time"
 )
 
@@ -14,10 +13,10 @@ type LoginRequest struct {
 
 // структура ответа на запрос login  от сервиса авторизации
 type LoginResponse struct {
-	Tokens    domain.TokenPair `json:"tokens"`     // access и refresh
-	TokenType string           `json:"token_type"` // Bearer
-	UserID    string           `json:"user_id,omitempty"`
-	ExpiresIn int64            `json:"expires_in"`
+	AccessToken string `json:"access_token"` // access и refresh
+	TokenType   string `json:"token_type"`   // Bearer
+	UserID      int64  `json:"user_id,omitempty"`
+	ExpiresIn   int64  `json:"expires_in"`
 }
 
 // структура запроса для регистрации пользователя

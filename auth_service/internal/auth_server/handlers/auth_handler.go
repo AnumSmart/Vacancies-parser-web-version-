@@ -4,10 +4,11 @@ package handlers
 import (
 	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/service"
-	"auth_service/internal/domain"
 	"context"
 	"errors"
 	"fmt"
+	globalmodels "global_models"
+	"global_models/global_cookie"
 	"net/http"
 	"shared/middleware"
 	"strconv"
@@ -29,13 +30,15 @@ type AuthHandlerInterface interface {
 
 // структура хэндлера сервера авторизации
 type AuthHandler struct {
-	service service.AuthServiceInterface
+	service       service.AuthServiceInterface
+	cookieManager global_cookie.CookieManagerInterface
 }
 
 // конструктор для слоя хэндлеров
-func NewAuthHandler(service service.AuthServiceInterface) *AuthHandler {
+func NewAuthHandler(service service.AuthServiceInterface, cookieManager global_cookie.CookieManagerInterface) *AuthHandler {
 	return &AuthHandler{
-		service: service,
+		service:       service,
+		cookieManager: cookieManager,
 	}
 }
 
@@ -116,7 +119,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// Приведение типа с проверкой
-	user, ok := validatedData.(*dto.LoginRequest)
+	loginInfo, ok := validatedData.(*dto.LoginRequest)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Invalid request type",
@@ -125,14 +128,14 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	//пробуем залогировать пользователя
-	err := a.service.Login(c.Request.Context(), user.Email, user.Password)
+	userID, err := a.service.Login(c.Request.Context(), loginInfo.Email, loginInfo.Password)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// Получаем access и refresh токены, если метод Login отработал без ошибок
-	tokenPair, err := a.service.GetTokens(c.Request.Context(), user.Email)
+	tokenPair, err := a.service.GetTokens(c.Request.Context(), loginInfo.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка при получении токенов токена",
@@ -142,7 +145,7 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 	}
 
 	// создаём хэш рэфрэш токена и пробуем добавить в базу
-	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), user.Email, tokenPair.RefreshToken, tokenPair.RefreshJTI)
+	err = a.service.AddHashRefreshTokenToDb(c.Request.Context(), loginInfo.Email, tokenPair.RefreshToken, tokenPair.RefreshJTI)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Ошибка записи refreshToken в БД",
@@ -151,20 +154,30 @@ func (a *AuthHandler) LoginHandler(c *gin.Context) {
 		return
 	}
 
-	// ----------------------------------------------------------------------------------------------------------------
-	// доделать работу с cookie через cookieManager (access -- вернуть в ответе в JSON, refresh в cookie)--------------
-	// ----------------------------------------------------------------------------------------------------------------
+	// refresh token возвращаем через cookieManager в куке
+	// создаём опцции для куки, согласно глобальной модели
 
-	// структура jwt токенов
-	domainTokenPair := domain.TokenPair{
-		AccessToken:  tokenPair.AccessToken,
-		RefreshToken: tokenPair.RefreshToken,
+	opts := globalmodels.CookieOptions{
+		Name:  "refresh_token",        // имя куки
+		Value: tokenPair.RefreshToken, // значение куки (тут это refresh токен)
+		Path:  "/api/auth/refresh",    // путь
 	}
 
-	// формируем ответ для пользователя
+	// устанавливаем рефрэш токен в куки (используе куки-менеджер)
+	err = a.cookieManager.SetCookie(c, opts)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Ошибка установки Cookie (refresh_token)",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// формируем ответ для пользователя (в ответе возвращаем только access токен)
 	responce := dto.LoginResponse{
-		Tokens:    domainTokenPair,
-		TokenType: "Bearer",
+		AccessToken: tokenPair.AccessToken,
+		TokenType:   "Bearer",
+		UserID:      userID, // возвращаем пользователю ID
 	}
 
 	c.JSON(http.StatusOK, responce)
@@ -178,26 +191,54 @@ func (a *AuthHandler) ProcessRefreshTokenHandler(c *gin.Context) {
 		return
 	}
 
-	//Проверка того, что JSON из запроса мапится в нужную структуру refresh токена
-	var req dto.RefreshRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+	// БРАУЗЕР АВТОМАТИЧЕСКИ прислал refresh_token в куке
+	// Нам не нужно читать его из тела запроса или заголовков!
+
+	refreshToken, err := a.cookieManager.GetCookie(c, "refresh_token")
+	if err != nil {
+		// Нет refresh токена в куке - просим перелогиниться
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"Message": "no refresh token",
+			"Code":    "REFRESH_TOKEN_MISSING",
+			"Error":   err.Error(),
+		})
 		return
 	}
 
-	// 3. Вызов сервиса
-	tokens, err := a.service.RefreshTokens(c.Request.Context(), req.RefreshToken)
+	// Вызов сервиса
+	tokens, err := a.service.RefreshTokens(c.Request.Context(), refreshToken)
 	if err != nil {
+		// Токен невалидный - удаляем куку
+		a.cookieManager.DeleteCookie(c, "refresh_token", "/api/auth/refresh")
 		// Обработка ошибок: токен невалиден, отозван и т.д.
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	// ----------------------------------------------------------------------------------------------------------------
-	// доделать работу с cookie через cookieManager (access -- вернуть в ответе в JSON, refresh в cookie)--------------
-	// ----------------------------------------------------------------------------------------------------------------
+	// refresh token возвращаем через cookieManager в куке
+	// создаём опцции для куки, согласно глобальной модели
 
-	c.JSON(http.StatusOK, tokens)
+	opts := globalmodels.CookieOptions{
+		Name:  "refresh_token",     // имя куки
+		Value: tokens.RefreshToken, // значение куки (тут это refresh токен)
+		Path:  "/api/auth/refresh", // путь
+	}
+
+	// устанавливаем рефрэш токен в куки (используе куки-менеджер)
+	err = a.cookieManager.SetCookie(c, opts)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Ошибка установки Cookie (refresh_token)",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	// возвращаем новый access токен в ответе пользователю
+	c.JSON(http.StatusOK, gin.H{
+		"Access_token": tokens.AccessToken,
+		"TokenType":    "Bearer",
+	})
 }
 
 // Хэндлер для валидации access токена от API Gateway (это будет внутренний эндпоинт nginx)
