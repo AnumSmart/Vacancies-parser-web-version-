@@ -2,7 +2,6 @@
 package service
 
 import (
-	"auth_service/internal/auth_server/dto"
 	"auth_service/internal/auth_server/repository"
 	"auth_service/internal/domain"
 	"context"
@@ -16,6 +15,7 @@ import (
 	"shared/jwt_service"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,7 +24,7 @@ import (
 type AuthServiceInterface interface {
 	Register(ctx context.Context, email, password string) (string, error)
 	Login(ctx context.Context, email, password string) (int64, error)
-	LogOut(ctx context.Context, params *dto.LogOutParams) error
+	IvalidateRefreshToken(ctx context.Context, userEmail, userID string) error
 	StopServices(ctx context.Context)
 	AddHashRefreshTokenToDb(ctx context.Context, email, refreshToken, tokenJTI string) error
 	GetTokens(ctx context.Context, email string) (*jwt_service.TokenPair, error)
@@ -180,17 +180,17 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	// 5. Получаем оставшееся время жизни user refresh token
 	ttlUserRefreshToken := a.jwtManager.CalculateTokenTTL(claims)
 
-	// 6. Получаем хэш userRefreshToken на базе SHA256 для добавления в redis
+	// 6. Получаем хэш userRefreshToken на базе SHA256 для сравнения с хэшом из БД
 	userRefTokenHash := HashRefreshToken(refreshToken, []byte(a.jwtManager.GetJTWConfig().TokenPepper))
 
 	// 5. проверка в Reddis (черный список), находится ли там запись хэша refresh токена
-	exists, err := a.repo.BlackListRepo.IsBlacklisted(ctx, claims.ID)
+	exists, err := a.repo.BlackListRepo.IsBlacklisted(ctx, claims.ID, claims.TokenType)
 	if exists {
 		return nil, fmt.Errorf("current refresh token is in Black list!")
 	}
 
 	// 6. Полная проверка в БД (проверяем хэш переданного от юзера refresh токена)
-	tokenHashFromDB, err := a.repo.DBRepo.FindTokenHashByEmail(ctx, claims.Email)
+	tokenHashFromDB, _, err := a.repo.DBRepo.FindTokenHashByEmail(ctx, claims.Email)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to find token in base by email from claims")
 	}
@@ -214,7 +214,7 @@ func (a *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*
 	}
 
 	// 10. добавить старый refresh токен в черный список redis (с оставшимся времененем жизни)
-	err = a.repo.BlackListRepo.AddToBlacklist(ctx, claims.ID, claims.TokenType, claims.UserID, ttlUserRefreshToken)
+	err = a.repo.BlackListRepo.AddToBlacklist(ctx, claims.ID, userRefTokenHash, claims.UserID, ttlUserRefreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add refresh token to black list: %w", err)
 	}
@@ -265,23 +265,31 @@ func (a *AuthService) ValidateToken(ctx context.Context, token string) (*jwt_ser
 	return claims, true, nil
 }
 
-// метод Logout обрабатывает выход из системы
-func (a *AuthService) LogOut(ctx context.Context, params *dto.LogOutParams) error {
+// метод получения хэша токена из
+func (a *AuthService) IvalidateRefreshToken(ctx context.Context, userEmail, userID string) error {
 	// Проверяем не отменен ли контекст
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	// Добавляем access токен в Redis blacklist
-	if params.TTL > 0 {
-		// тут в параметры передаём не сам токен, а токен JTI
-		err := a.repo.BlackListRepo.AddToBlacklist(ctx, params.TokenID, params.TokenType, params.UserID, params.TTL)
-		if err != nil {
-			fmt.Printf("Error during blacklisting access token:%v\n", err)
-		}
+	// получаем хэш рефрэш токена из базы данных
+	refreshHash, tokenJTI, err := a.repo.DBRepo.FindTokenHashByEmail(ctx, userEmail)
+	if err != nil {
+		return fmt.Errorf("Failed to find refresh token hash in DB: %v", err)
 	}
-	//------------------------------------------------- доработать!
-	// refresh ---> сookies??
+
+	// добавили в черный спиок с TTL=1 час, чтобы redis сам очистил
+	err = a.repo.BlackListRepo.AddToBlacklist(ctx, tokenJTI, refreshHash, userID, 60*time.Minute)
+	if err != nil {
+		return fmt.Errorf("Failed to add refresh token hash into Black List: %v", err)
+	}
+
+	// обновляем значение в таблице для конкретного юзера на пусты строки
+	err = a.repo.DBRepo.AddRefreshToken(ctx, userEmail, "", "")
+	if err != nil {
+		return fmt.Errorf("Failed to invalidate (tokenHash ---> '') refresh token in DB: %v", err)
+	}
+
 	return nil
 }
 
