@@ -36,13 +36,13 @@ func NewBlackListRepo(cache global_cache.Cache, prefix string) (authinterfaces.B
 
 // Добавление в черный список
 // ключ: blacklist:тип токена:JTI токена, значение: время истечения
-func (b *AuthBlackListRepository) AddToBlacklist(ctx context.Context, tokenJTI, tokenType, userID string, ttl time.Duration) error {
+func (b *AuthBlackListRepository) AddToBlacklist(ctx context.Context, tokenJTI, tokenHash, userID string, ttl time.Duration) error {
 	// проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	// Просто сохраняем токен с timestamp истечения
-	key := fmt.Sprintf("blacklist:%s:%s", tokenType, tokenJTI)
+	key := fmt.Sprintf("blacklist:%s:%s", tokenHash, tokenJTI)
 
 	// Значение - время истечения в unix timestamp
 	expiresAt := time.Now().UTC().Add(ttl).Unix()
@@ -56,13 +56,13 @@ func (b *AuthBlackListRepository) AddToBlacklist(ctx context.Context, tokenJTI, 
 }
 
 // метод для проверки, есть ли такой ключ в черном списке
-func (b *AuthBlackListRepository) IsBlacklisted(ctx context.Context, tokenJTI string) (bool, error) {
+func (b *AuthBlackListRepository) IsBlacklisted(ctx context.Context, tokenJTI, tokenHash string) (bool, error) {
 	// проверяем отмену контекста
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
 
-	key := fmt.Sprintf("blacklist:%s", tokenJTI)
+	key := fmt.Sprintf("blacklist:%s:%s", tokenHash, tokenJTI)
 
 	// Проверяем существование ключа
 	exists, err := b.blackCache.Exists(ctx, key)

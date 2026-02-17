@@ -24,6 +24,7 @@ func NewAuthUserRepository(pool global_db.Pool) authinterfaces.DBRepoInterface {
 	return &AuthUserDBRepository{pool: pool}
 }
 
+// метод для проверки, есть ли такой пользователь в базе (возвращаем ID пользователя, флаг и ошибку)
 func (a *AuthUserDBRepository) CheckIfInBaseByEmail(ctx context.Context, email string) (int64, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, false, err
@@ -44,6 +45,7 @@ func (a *AuthUserDBRepository) CheckIfInBaseByEmail(ctx context.Context, email s
 	return id, true, nil
 }
 
+// метод для добавления нового пользователя в базу данных (возвращаем ID пользователя из базы и ошибку)
 func (a *AuthUserDBRepository) AddUser(ctx context.Context, email, hashedPass string) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return -1, err
@@ -52,7 +54,6 @@ func (a *AuthUserDBRepository) AddUser(ctx context.Context, email, hashedPass st
 	const query = `
         INSERT INTO users (email, password_hash, created_at) 
         VALUES ($1, $2, $3) 
-        ON CONFLICT (email) DO NOTHING
         RETURNING id
     `
 
@@ -69,6 +70,7 @@ func (a *AuthUserDBRepository) AddUser(ctx context.Context, email, hashedPass st
 	return userID, nil
 }
 
+// метод для поиска пользователя с заданным email в базе (получаем пользователя и ошибку)
 func (a *AuthUserDBRepository) FindUserByEmail(ctx context.Context, email string) (*globalmodels.User, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -99,26 +101,28 @@ func (a *AuthUserDBRepository) FindUserByEmail(ctx context.Context, email string
 	return &user, nil
 }
 
-func (a *AuthUserDBRepository) FindTokenHashByEmail(ctx context.Context, email string) (string, error) {
+// метод поиска хэша токена в БД по email (получаем хэш токена, токенJTI, ошибку)
+func (a *AuthUserDBRepository) FindTokenHashByEmail(ctx context.Context, email string) (string, string, error) {
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	const query = `SELECT refresh_token FROM users WHERE email = $1 LIMIT 1`
+	const query = `SELECT refresh_token_hash, token_jti FROM users WHERE email = $1 LIMIT 1`
 
-	var tokenHash string
-	err := a.pool.QueryRow(ctx, query, email).Scan(&tokenHash)
+	var tokenHash, tokenJTI string // Обычные строки, т.к. NOT NULL
 
+	err := a.pool.QueryRow(ctx, query, email).Scan(&tokenHash, &tokenJTI)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil // ✅ пустой токен, но без ошибки
+			return "", "", nil // Пользователь не найден
 		}
-		return "", fmt.Errorf("failed to query token hash: %w", err)
+		return "", "", fmt.Errorf("failed to query token hash: %w", err)
 	}
 
-	return tokenHash, nil
+	return tokenHash, tokenJTI, nil
 }
 
+// метод добавления (обновления) рефрэш токена в БД
 func (a *AuthUserDBRepository) AddRefreshToken(ctx context.Context, email, refreshToken, tokenJTI string) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -126,7 +130,7 @@ func (a *AuthUserDBRepository) AddRefreshToken(ctx context.Context, email, refre
 
 	const query = `
         UPDATE users 
-        SET refresh_token = $1, token_jti = $2
+        SET refresh_token_hash = $1, token_jti = $2
         WHERE email = $3
     `
 

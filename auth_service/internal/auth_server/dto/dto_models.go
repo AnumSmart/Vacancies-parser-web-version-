@@ -37,9 +37,10 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-// Структура для логаута
+// Структура для логаута (для сервисного слоя)
 type LogOutParams struct {
 	UserID    string        // ID пользователя
+	UserEmail string        // Email пользователя
 	TokenID   string        // ID токена (access)
 	TokenType string        // Тип токена
 	Token     string        // переданный токен

@@ -11,8 +11,6 @@ import (
 	"global_models/global_cookie"
 	"net/http"
 	"shared/middleware"
-	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -323,12 +321,17 @@ func (a *AuthHandler) ValidateTokenHandler(c *gin.Context) {
 		return
 	}
 
+	if claims.Email != "" {
+		c.Header("X-User-Email", claims.Email) // добавляем в заголовки email пользователя (из claims)
+	}
+
 	// если все успешно, возвращаем необходимые заголовки и статус
-	c.Header("X-User-ID", claims.UserID) // обязательныое поле отведа для nginx
-	c.Header("X-User-Roles", "user")     // обязательныое поле отведа для nginx (пока используем "заглушку" - user)
-	c.Header("X-Token-ID", claims.ID)
-	c.Header("X-Token-Type", claims.TokenType)
-	c.Header("X-Token-Exp", claims.ExpiresAt.String())
+	c.Header("X-User-ID", claims.UserID)               // обязательныое поле отведа для nginx
+	c.Header("X-User-Roles", "user")                   // обязательныое поле отведа для nginx (пока используем "заглушку" - user)
+	c.Header("X-Token-ID", claims.ID)                  // ID токена
+	c.Header("X-Token-Type", claims.TokenType)         // тип токена
+	c.Header("X-Token-Exp", claims.ExpiresAt.String()) // срок действия токена
+
 	c.Status(200)
 }
 
@@ -344,12 +347,13 @@ func (a *AuthHandler) LogoutHandler(c *gin.Context) {
 	// Токен уже валидирован API Gateway
 	// Извлекаем данные из заголовков, установленных nginx
 	userID := c.GetHeader("X-User-ID")
+	userEmail := c.GetHeader("X-User-Email")
 	tokenID := c.GetHeader("X-Token-ID")
 	tokenType := c.GetHeader("X-Token-Type")
 	expStr := c.GetHeader("X-Token-Exp")
 
 	// Если API Gateway не передал claims, возвращаем ошибку
-	if userID == "" || tokenID == "" || expStr == "" || tokenType == "" {
+	if userID == "" || tokenID == "" || expStr == "" || tokenType == "" || userEmail == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid_request",
 			"message": "Missing authentication headers",
@@ -366,31 +370,8 @@ func (a *AuthHandler) LogoutHandler(c *gin.Context) {
 		return
 	}
 
-	// Парсим expiration time
-	expUnix, err := strconv.ParseInt(expStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid_expiration",
-			"message": "Invalid token expiration format",
-		})
-		return
-	}
-
-	// получаем оставшееся время жизни токена (в данном случае access)
-	expiresAt := time.Unix(expUnix, 0)
-
-	ttl := time.Until(expiresAt)
-
-	// формируем структуру параметров для сервисного слоя
-	logOutParams := dto.LogOutParams{
-		UserID:    userID,
-		TokenID:   tokenID,
-		TokenType: tokenType,
-		TTL:       ttl,
-	}
-
-	// продуем провести logout
-	err = a.service.LogOut(ctx, &logOutParams)
+	// инвалидируем refresh токен (удаляем из базы, заносим в черный список)
+	err := a.service.IvalidateRefreshToken(c, userEmail, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "LogOut error",
@@ -399,9 +380,8 @@ func (a *AuthHandler) LogoutHandler(c *gin.Context) {
 		return
 	}
 
-	// ----------------------------------------------------------------------------------------------------------------
-	// доделать работу с cookie через cookieManager (ивалидация cookie)------------------------------------------------
-	// ----------------------------------------------------------------------------------------------------------------
+	// удаляем куки с рефрэш токеном
+	a.cookieManager.DeleteCookie(c, "refresh_token", "/api/auth/refresh")
 
 	//  успешный ответ пользователю
 	c.JSON(http.StatusOK, gin.H{
