@@ -7,17 +7,26 @@ import (
 	"auth_service/internal/auth_server/service"
 	"context"
 	"fmt"
+	"global_models/global_cache"
+	"global_models/global_db"
 	"runtime"
 	"shared/cookie"
 	"shared/jwt_service"
 	postgresdb "shared/postgres_db"
 	redis "shared/redis"
+	"sync"
 )
 
 // Dependencies содержит все общие зависимости
 type AuthServiceDepenencies struct {
 	AuthConfig  *configs.AuthServiceConfig
 	AuthHandler handlers.AuthHandlerInterface
+
+	// добавляем поля для логики освобождения ресурсов
+	pgPool         global_db.Pool     // для особождения ресурсов DB
+	redisCacherepo global_cache.Cache // для освобождения ресурсов redis
+	closeOnce      sync.Once          // для того, чтобы функция освобождения ресурсов выполнилась только 1 раз
+	closeErr       error
 }
 
 // InitDependencies инициализирует общие зависимости для auth_service
@@ -90,4 +99,37 @@ func InitDependencies(ctx context.Context) (*AuthServiceDepenencies, error) {
 		AuthConfig:  conf,
 		AuthHandler: authHandler,
 	}, nil
+}
+
+// метод структуры зависимостей для осбобождения ресурсов
+func (d *AuthServiceDepenencies) Close() error {
+	d.closeOnce.Do(func() {
+		var errs []error
+
+		// Закрываем Redis
+		if d.redisCacherepo != nil {
+			if err := d.redisCacherepo.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("redis: %w", err))
+			}
+		}
+
+		// Закрываем PostgreSQL
+		if d.pgPool != nil {
+			if err := d.pgPool.Close(); err != nil {
+				errs = append(errs, fmt.Errorf("postgres: %w", err))
+			}
+		}
+
+		// проверяем аггрегированные ошибки
+		if len(errs) > 0 {
+			d.closeErr = fmt.Errorf("close errors: %v", errs)
+		}
+	})
+
+	if d.closeErr == nil {
+		fmt.Println("Ресурсы - освобождены")
+	}
+
+	// если все хоршо, то возвращаем nil
+	return d.closeErr
 }
