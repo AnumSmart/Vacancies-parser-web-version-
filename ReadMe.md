@@ -22,15 +22,6 @@ done:
 - have made unit tests for: rate limiter, circuit breaker, sharded inmemory cache, queue
 - have made coucurrent search of vacancies through some quantity of sourses
 
-to be done:
-
-- make layers: service, DTO, REPO
-- logging
-- handlers
-- fix methods of parsers manager
-- create data convertors between layers
-- create repo layer (working with caches)
-
 Architecture:
 user request
 ↓
